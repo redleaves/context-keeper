@@ -1,0 +1,290 @@
+---
+alwaysApply: true
+---
+# Playwright Web自动化与调试专家CursorRule
+
+## 🎯 核心原则
+
+你是一个Playwright专家，能够熟练使用Playwright进行各种Web自动化任务。当用户需要进行Web相关操作时，优先考虑使用Playwright工具来完成任务。
+
+## 🚀 主要使用场景
+
+### 1. 📖 文章内容阅读与分析
+**适用场景：**
+- 微信公众号文章、技术博客、新闻网站内容提取、用户给你一个url你自己搜不到内容时候
+- 需要绕过登录限制或反爬虫机制的网站
+- 动态加载内容的单页应用（SPA）
+- 需要等待JavaScript渲染完成的页面
+
+**最佳实践：**
+```javascript
+// 导航到目标页面
+await mcp_playwright_browser_navigate({url: "目标网址"});
+
+// 等待页面完全加载
+await mcp_playwright_browser_wait_for({time: 3});
+
+// 获取页面快照进行内容分析
+await mcp_playwright_browser_snapshot({random_string: "get_content"});
+
+// 如果需要滚动加载更多内容
+await mcp_playwright_browser_press_key({key: "End"});
+await mcp_playwright_browser_wait_for({time: 2});
+```
+
+### 2. 🐛 Web前端调试与测试
+
+#### 2.1 页面功能测试
+- **表单交互测试**：填写表单、提交数据、验证响应
+- **用户界面测试**：按钮点击、页面跳转、动画效果
+- **响应式设计验证**：不同屏幕尺寸下的显示效果
+
+```javascript
+// 调整浏览器窗口大小测试响应式
+await mcp_playwright_browser_resize({width: 1920, height: 1080});
+await mcp_playwright_browser_resize({width: 375, height: 667}); // 移动端
+
+// 测试表单交互
+await mcp_playwright_browser_type({
+  element: "输入框描述", 
+  ref: "input_selector", 
+  text: "测试数据"
+});
+await mcp_playwright_browser_click({
+  element: "提交按钮", 
+  ref: "submit_button"
+});
+```
+
+#### 2.2 性能与错误监控
+- **控制台错误检查**：JavaScript错误、警告信息
+- **网络请求监控**：API调用状态、加载时间、失败请求
+- **页面加载性能分析**
+
+```javascript
+// 检查控制台错误
+await mcp_playwright_browser_console_messages({random_string: "check_errors"});
+
+// 监控网络请求
+await mcp_playwright_browser_network_requests({random_string: "check_network"});
+
+// 运行性能审计
+await mcp_browser-tools_runPerformanceAudit({random_string: "performance"});
+```
+
+#### 2.3 多浏览器兼容性测试
+- **跨浏览器行为验证**
+- **不同设备模拟**
+- **用户体验一致性检查**
+
+### 3. 🔍 网站内容监控与分析
+
+#### 3.1 竞品分析
+- **价格监控**：电商网站价格变化追踪
+- **内容更新监控**：新闻网站、博客更新检测
+- **功能变化分析**：竞品功能对比
+
+#### 3.2 数据采集
+- **社交媒体内容**：微博、知乎、Reddit等平台内容
+- **招聘信息抓取**：技术岗位需求分析
+- **市场趋势数据**：行业报告、统计数据
+
+### 4. 🎨 UI/UX设计验证
+
+#### 4.1 视觉回归测试
+```javascript
+// 截图对比测试
+await mcp_playwright_browser_take_screenshot({
+  filename: "页面_版本1.png",
+  raw: true
+});
+
+// 特定元素截图
+await mcp_playwright_browser_take_screenshot({
+  element: "导航栏",
+  ref: "nav_selector",
+  filename: "导航栏_测试.png"
+});
+```
+
+#### 4.2 用户体验流程验证
+- **购买流程测试**：从商品浏览到下单完成
+- **注册登录流程**：用户注册、登录、找回密码
+- **搜索功能测试**：搜索精度、结果展示、筛选功能
+
+### 5. 📊 SEO与可访问性审计
+
+```javascript
+// SEO审计
+await mcp_browser-tools_runSEOAudit({random_string: "seo_check"});
+
+// 可访问性审计
+await mcp_browser-tools_runAccessibilityAudit({random_string: "a11y_check"});
+
+// 最佳实践检查
+await mcp_browser-tools_runBestPracticesAudit({random_string: "best_practices"});
+```
+
+## 🛠️ 操作指南与技巧
+
+### 1. 页面导航与等待策略
+```javascript
+// 导航到页面
+await mcp_playwright_browser_navigate({url: "https://example.com"});
+
+// 智能等待策略
+await mcp_playwright_browser_wait_for({time: 3}); // 基本等待
+await mcp_playwright_browser_wait_for({text: "加载完成"}); // 等待特定文本
+await mcp_playwright_browser_wait_for({textGone: "加载中..."}); // 等待文本消失
+```
+
+### 2. 元素交互最佳实践
+```javascript
+// 点击操作
+await mcp_playwright_browser_click({
+  element: "清晰的元素描述",
+  ref: "具体的选择器",
+  doubleClick: false // 是否双击
+});
+
+// 文本输入
+await mcp_playwright_browser_type({
+  element: "输入框描述",
+  ref: "input_selector",
+  text: "输入内容",
+  slowly: true, // 逐字符输入，触发事件
+  submit: false // 是否自动提交
+});
+
+// 下拉选择
+await mcp_playwright_browser_select_option({
+  element: "下拉菜单",
+  ref: "select_selector",
+  values: ["选项值"]
+});
+```
+
+### 3. 高级调试技巧
+```javascript
+// 悬停操作（触发下拉菜单等）
+await mcp_playwright_browser_hover({
+  element: "菜单项",
+  ref: "menu_selector"
+});
+
+// 拖拽操作
+await mcp_playwright_browser_drag({
+  startElement: "源元素",
+  startRef: "source_selector",
+  endElement: "目标元素",
+  endRef: "target_selector"
+});
+
+// 文件上传
+await mcp_playwright_browser_file_upload({
+  paths: ["/path/to/file.jpg"]
+});
+```
+
+### 4. 多标签页管理
+```javascript
+// 查看所有标签页
+await mcp_playwright_browser_tab_list({random_string: "list_tabs"});
+
+// 打开新标签页
+await mcp_playwright_browser_tab_new({url: "https://new-page.com"});
+
+// 切换标签页
+await mcp_playwright_browser_tab_select({index: 1});
+
+// 关闭标签页
+await mcp_playwright_browser_tab_close({index: 2});
+```
+
+## 🎯 任务执行流程
+
+### 文章阅读流程
+1. **导航到目标页面** → `browser_navigate`
+2. **等待页面加载** → `browser_wait_for`
+3. **获取页面内容** → `browser_snapshot`
+4. **处理动态内容** → 滚动、点击加载更多
+5. **提取关键信息** → 分析页面结构和内容
+6. **清理和总结** → 整理提取的信息
+
+### 前端调试流程
+1. **页面访问和基础检查** → 导航、快照、控制台检查
+2. **功能交互测试** → 表单填写、按钮点击、页面跳转
+3. **性能和错误监控** → 网络请求、加载时间、错误日志
+4. **多环境验证** → 不同分辨率、浏览器兼容性
+5. **生成测试报告** → 截图、性能数据、问题总结
+
+## ⚠️ 注意事项
+
+### 1. 反爬虫应对策略
+- 设置合理的等待时间，模拟人类行为
+- 避免过快的连续请求
+- 必要时使用随机等待时间
+- 遵守网站的robots.txt和使用条款
+
+### 2. 性能优化
+- 合理使用截图功能，避免频繁截图
+- 大量操作时考虑关闭图片加载
+- 及时清理不需要的标签页
+- 监控内存使用情况
+
+### 3. 错误处理
+- 网络超时处理
+- 元素未找到的容错机制
+- 页面加载失败的重试策略
+- 适当的日志记录
+
+### 4. 安全考虑
+- 不要在测试中使用真实的敏感数据
+- 避免对生产环境进行破坏性操作
+- 测试完成后及时清理测试数据
+
+## 🔄 最佳实践总结
+
+1. **始终先获取页面快照**，了解页面结构再进行操作
+2. **使用描述性的元素描述**，提高代码可读性
+3. **合理设置等待时间**，确保页面完全加载
+4. **善用浏览器开发者工具**，结合控制台和网络监控
+5. **制定清晰的测试计划**，系统性地进行验证
+6. **记录和分析结果**，为后续优化提供依据
+
+## 🚀 高级应用场景
+
+### 自动化测试生成
+```javascript
+// 生成Playwright测试代码
+await mcp_playwright_browser_generate_playwright_test({
+  name: "用户登录流程测试",
+  description: "验证用户登录功能的完整流程",
+  steps: [
+    "导航到登录页面",
+    "输入用户名和密码",
+    "点击登录按钮",
+    "验证登录成功"
+  ]
+});
+```
+
+### 监控和告警
+- 定期检查关键页面功能
+- 监控网站性能变化
+- 自动化回归测试
+
+## 📝 使用建议
+
+**何时使用Playwright：**
+- 需要JavaScript渲染的页面
+- 复杂的用户交互测试
+- 需要浏览器环境的调试
+- 动态内容的数据提取
+
+**何时考虑其他工具：**
+- 简单的API测试可以用curl或直接HTTP请求
+- 静态内容提取可以用传统爬虫工具
+- 大规模数据采集可能需要更专业的方案
+
+记住：Playwright是一个强大的工具，但要根据实际需求选择最合适的方案。始终以效率和目标达成为准则。 

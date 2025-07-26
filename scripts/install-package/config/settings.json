@@ -1,0 +1,28 @@
+{
+  "server": {
+    "port": 8088,
+    "host": "127.0.0.1",
+    "timeout": 30
+  },
+  "storage": {
+    "type": "local",
+    "path": "./data",
+    "retention_days": 30
+  },
+  "logging": {
+    "level": "info",
+    "file": "./logs/context-keeper.log",
+    "max_size": 10,
+    "max_backups": 3,
+    "max_age": 7
+  },
+  "embeddings": {
+    "provider": "local",
+    "dimension": 384,
+    "cache": true
+  },
+  "mcp": {
+    "protocol_version": "1.0",
+    "response_timeout": 5000
+  }
+} 

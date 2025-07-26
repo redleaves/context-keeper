@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context-Keeper 配置</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #007acc, #005a9e);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #e3f2fd;
+            font-size: 1.1rem;
+        }
+
+        /* 用户状态样式 */
+        .user-status {
+            background: #2d2d30;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .user-status.configured {
+            border-left: 4px solid #4caf50;
+        }
+
+        .user-status.not-configured {
+            border-left: 4px solid #ff9800;
+        }
+
+        .user-status h2 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-indicator.configured {
+            background-color: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.not-configured {
+            background-color: #ff9800;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .user-info {
+            background: #383838;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .user-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .user-info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .user-info-label {
+            color: #cccccc;
+            font-weight: 500;
+        }
+
+        .user-info-value {
+            color: #d4d4d4;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        /* 用户配置表单样式 */
+        .user-config-form {
+            background: #383838;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .form-row .field-input {
+            flex: 1;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #007acc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #005a9e;
+        }
+
+        .btn-secondary {
+            background: #464647;
+            color: #d4d4d4;
+        }
+
+        .btn-secondary:hover {
+            background: #555556;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e68900;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .section {
+            background: #2d2d30;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: #383838;
+            padding: 15px 20px;
+            border-bottom: 1px solid #464647;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .section-header:hover {
+            background: #404040;
+        }
+
+        .section-header h3 {
+            color: #4fc3f7;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-header .toggle {
+            color: #888;
+            transform: rotate(0deg);
+            transition: transform 0.2s;
+        }
+
+        .section.collapsed .toggle {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            padding: 20px;
+            transition: max-height 0.3s ease-out;
+            max-height: 1000px;
+            overflow: hidden;
+        }
+
+        .section.collapsed .section-content {
+            max-height: 0;
+            padding: 0 20px;
+        }
+
+        .field-group {
+            margin-bottom: 20px;
+        }
+
+        .field-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #cccccc;
+            font-weight: 500;
+        }
+
+        .field-description {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .field-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1e1e1e;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .field-input:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+        }
+
+        .field-input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .field-input[type="number"]::-webkit-outer-spin-button,
+        .field-input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #464647;
+            border-radius: 3px;
+            background: #1e1e1e;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .checkbox:checked {
+            background: #007acc;
+            border-color: #007acc;
+        }
+
+        .checkbox:checked::after {
+            content: '✓';
+            display: block;
+            color: white;
+            font-size: 12px;
+            text-align: center;
+            line-height: 14px;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .select {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1e1e1e;
+            border: 1px solid #464647;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-size: 14px;
+            cursor: pointer;
+            appearance: none;
+        }
+
+        .select:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+        }
+
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            pointer-events: none;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #2d2d30;
+            border-radius: 8px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #007acc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #005a9e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.4);
+        }
+
+        .btn-secondary {
+            background: #464647;
+            color: #d4d4d4;
+        }
+
+        .btn-secondary:hover {
+            background: #525252;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: #d32f2f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b71c1c;
+            transform: translateY(-1px);
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4caf50;
+            color: #4caf50;
+        }
+
+        .status.error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+
+        .status.info {
+            background: rgba(33, 150, 243, 0.2);
+            border: 1px solid #2196f3;
+            color: #2196f3;
+        }
+
+        .validation-error {
+            color: #f44336;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .field-group.error .field-input {
+            border-color: #f44336;
+        }
+
+        .field-group.error .validation-error {
+            display: block;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #383838;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #888;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+
+        .status-indicator.testing {
+            background: #ff9800;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Context-Keeper</h1>
+            <p>智能上下文管理系统配置</p>
+        </div>
+
+        <!-- 用户状态和配置 -->
+        <div id="userStatus" class="user-status">
+            <h2>
+                <span class="status-indicator" id="userStatusIndicator"></span>
+                👤 用户信息
+            </h2>
+            
+            <div id="userInfo" class="user-info" style="display: none;">
+                <div class="user-info-row">
+                    <span class="user-info-label">用户ID:</span>
+                    <span class="user-info-value" id="currentUserId">未设置</span>
+                </div>
+                <div class="user-info-row">
+                    <span class="user-info-label">配置文件:</span>
+                    <span class="user-info-value" id="configFilePath">-</span>
+                </div>
+                <div class="user-info-row">
+                    <span class="user-info-label">首次使用:</span>
+                    <span class="user-info-value" id="firstUsed">-</span>
+                </div>
+            </div>
+
+            <div id="userConfigPrompt" style="display: none;">
+                <p>🚨 <strong>重要提示：</strong>您还未配置用户信息。为了正常使用 Context-Keeper 的所有功能，请完成用户配置。</p>
+            </div>
+
+            <!-- 用户配置表单 -->
+            <div class="user-config-form">
+                <div class="form-group">
+                    <label class="field-label" for="userIdInput">用户ID</label>
+                    <div class="field-description">输入已有的用户ID，或点击生成新的用户ID</div>
+                    <div class="form-row">
+                        <input 
+                            type="text" 
+                            id="userIdInput" 
+                            class="field-input" 
+                            placeholder="例如: user_abc12345 或留空自动生成"
+                            pattern="^(user_[a-z0-9]{8}|[a-z0-9]{8})?$"
+                            title="格式：user_xxxxxxxx 或 xxxxxxxx（8位字母数字）"
+                        >
+                        <button type="button" class="btn btn-secondary" onclick="generateNewUserId()">
+                            🎲 生成新ID
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="validateUserId()">
+                            ✅ 验证
+                        </button>
+                    </div>
+                    <div id="userIdValidation" class="field-description" style="color: #888; margin-top: 5px;"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-success" onclick="saveUserConfig()" id="saveUserBtn">
+                        💾 保存用户配置
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="refreshUserStatus()">
+                        🔄 刷新状态
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="clearUserConfig()">
+                        🗑️ 清除配置
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <form id="configForm">
+            <!-- 配置部分将通过JavaScript动态生成 -->
+        </form>
+
+        <div class="actions">
+            <button type="button" class="btn btn-secondary" onclick="testConnection()">
+                🔗 测试连接
+            </button>
+            <button type="button" class="btn btn-primary" onclick="saveConfig()">
+                💾 保存配置
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="resetConfig()">
+                🔄 重置默认
+            </button>
+            <button type="button" class="btn btn-danger" onclick="clearData()">
+                🗑️ 清除数据
+            </button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // 配置数据
+        let configData = {};
+        let configSchema = {};
+
+        // 初始化
+        async function init() {
+            try {
+                // 获取配置架构
+                const response = await fetch('/api/config/schema');
+                configSchema = await response.json();
+                
+                // 加载当前配置
+                await loadConfig();
+                
+                // 生成表单
+                generateForm();
+                
+                // 自动测试连接
+                testConnection();
+                
+            } catch (error) {
+                showStatus('初始化失败: ' + error.message, 'error');
+            }
+        }
+
+        // 加载配置
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                configData = await response.json();
+            } catch (error) {
+                console.warn('加载配置失败，使用默认配置');
+                configData = getDefaultConfig();
+            }
+        }
+
+        // 获取默认配置
+        function getDefaultConfig() {
+            const config = {};
+            for (const [sectionKey, section] of Object.entries(configSchema)) {
+                config[sectionKey] = {};
+                for (const [fieldKey, field] of Object.entries(section.fields)) {
+                    config[sectionKey][fieldKey] = field.default;
+                }
+            }
+            return config;
+        }
+
+        // 生成表单
+        function generateForm() {
+            const form = document.getElementById('configForm');
+            form.innerHTML = '';
+
+            for (const [sectionKey, section] of Object.entries(configSchema)) {
+                const sectionDiv = createSection(sectionKey, section);
+                form.appendChild(sectionDiv);
+            }
+        }
+
+        // 创建配置部分
+        function createSection(sectionKey, section) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'section';
+            sectionDiv.innerHTML = `
+                <div class="section-header" onclick="toggleSection(this)">
+                    <h3>${section.title} <span class="toggle">▼</span></h3>
+                </div>
+                <div class="section-content">
+                    ${Object.entries(section.fields).map(([fieldKey, field]) => 
+                        createField(sectionKey, fieldKey, field)
+                    ).join('')}
+                </div>
+            `;
+            return sectionDiv;
+        }
+
+        // 创建字段
+        function createField(sectionKey, fieldKey, field) {
+            const value = configData[sectionKey]?.[fieldKey] ?? field.default;
+            const fieldId = `${sectionKey}_${fieldKey}`;
+
+            let inputHtml = '';
+            
+            switch (field.type) {
+                case 'boolean':
+                    inputHtml = `
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="${fieldId}" class="checkbox" ${value ? 'checked' : ''}>
+                            <label for="${fieldId}" style="cursor: pointer;">${field.label}</label>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'select':
+                    inputHtml = `
+                        <label class="field-label" for="${fieldId}">${field.label}</label>
+                        <div class="select-wrapper">
+                            <select id="${fieldId}" class="select field-input">
+                                ${field.options.map(option => 
+                                    `<option value="${option.value}" ${value === option.value ? 'selected' : ''}>${option.label}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    `;
+                    break;
+                    
+                case 'number':
+                    inputHtml = `
+                        <label class="field-label" for="${fieldId}">${field.label}</label>
+                        <input type="number" id="${fieldId}" class="field-input" 
+                               value="${value}" 
+                               ${field.min !== undefined ? `min="${field.min}"` : ''}
+                               ${field.max !== undefined ? `max="${field.max}"` : ''}
+                               ${field.step !== undefined ? `step="${field.step}"` : ''}
+                               ${field.required ? 'required' : ''}>
+                    `;
+                    break;
+                    
+                default: // string
+                    inputHtml = `
+                        <label class="field-label" for="${fieldId}">${field.label}</label>
+                        <input type="text" id="${fieldId}" class="field-input" 
+                               value="${value}" 
+                               placeholder="${field.placeholder || ''}"
+                               ${field.required ? 'required' : ''}>
+                    `;
+            }
+
+            return `
+                <div class="field-group" data-section="${sectionKey}" data-field="${fieldKey}">
+                    ${inputHtml}
+                    ${field.description ? `<div class="field-description">${field.description}</div>` : ''}
+                    <div class="validation-error"></div>
+                    ${sectionKey === 'serverConnection' && fieldKey === 'serverURL' ? 
+                        `<div class="connection-status">
+                            <div class="status-indicator" id="connectionIndicator"></div>
+                            <span id="connectionText">未连接</span>
+                        </div>` : ''}
+                </div>
+            `;
+        }
+
+        // 切换部分展开/折叠
+        function toggleSection(header) {
+            const section = header.parentNode;
+            section.classList.toggle('collapsed');
+        }
+
+        // 收集表单数据
+        function collectFormData() {
+            const data = {};
+            
+            for (const [sectionKey, section] of Object.entries(configSchema)) {
+                data[sectionKey] = {};
+                
+                for (const [fieldKey, field] of Object.entries(section.fields)) {
+                    const fieldId = `${sectionKey}_${fieldKey}`;
+                    const element = document.getElementById(fieldId);
+                    
+                    if (field.type === 'boolean') {
+                        data[sectionKey][fieldKey] = element.checked;
+                    } else if (field.type === 'number') {
+                        data[sectionKey][fieldKey] = parseFloat(element.value) || field.default;
+                    } else {
+                        data[sectionKey][fieldKey] = element.value || field.default;
+                    }
+                }
+            }
+            
+            return data;
+        }
+
+        // 验证配置
+        function validateConfig(config) {
+            const errors = [];
+            
+            for (const [sectionKey, section] of Object.entries(configSchema)) {
+                if (!config[sectionKey]) continue;
+                
+                for (const [fieldKey, field] of Object.entries(section.fields)) {
+                    const value = config[sectionKey][fieldKey];
+                    const fieldGroup = document.querySelector(`[data-section="${sectionKey}"][data-field="${fieldKey}"]`);
+                    const errorElement = fieldGroup?.querySelector('.validation-error');
+                    
+                    // 清除之前的错误状态
+                    fieldGroup?.classList.remove('error');
+                    if (errorElement) errorElement.textContent = '';
+                    
+                    // 必填字段检查
+                    if (field.required && (value === undefined || value === null || value === '')) {
+                        const error = `${field.label}: 此字段为必填项`;
+                        errors.push(error);
+                        if (errorElement) {
+                            errorElement.textContent = error;
+                            fieldGroup.classList.add('error');
+                        }
+                        continue;
+                    }
+                    
+                    // 数值范围检查
+                    if (field.type === 'number' && typeof value === 'number') {
+                        if (field.min !== undefined && value < field.min) {
+                            const error = `${field.label}: 不能小于 ${field.min}`;
+                            errors.push(error);
+                            if (errorElement) {
+                                errorElement.textContent = error;
+                                fieldGroup.classList.add('error');
+                            }
+                        }
+                        if (field.max !== undefined && value > field.max) {
+                            const error = `${field.label}: 不能大于 ${field.max}`;
+                            errors.push(error);
+                            if (errorElement) {
+                                errorElement.textContent = error;
+                                fieldGroup.classList.add('error');
+                            }
+                        }
+                    }
+                    
+                    // 正则表达式验证
+                    if (field.validation && field.validation.pattern && typeof value === 'string') {
+                        if (!field.validation.pattern.test(value)) {
+                            const error = field.validation.message;
+                            errors.push(error);
+                            if (errorElement) {
+                                errorElement.textContent = error;
+                                fieldGroup.classList.add('error');
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return errors;
+        }
+
+        // 测试连接
+        async function testConnection() {
+            const indicator = document.getElementById('connectionIndicator');
+            const text = document.getElementById('connectionText');
+            
+            if (indicator && text) {
+                indicator.className = 'status-indicator testing';
+                text.textContent = '正在测试...';
+            }
+            
+            try {
+                const config = collectFormData();
+                const response = await fetch('/api/test-connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (indicator && text) {
+                    if (result.success) {
+                        indicator.className = 'status-indicator connected';
+                        text.textContent = '连接成功';
+                        showStatus('连接测试成功', 'success');
+                    } else {
+                        indicator.className = 'status-indicator disconnected';
+                        text.textContent = '连接失败';
+                        showStatus('连接测试失败: ' + result.message, 'error');
+                    }
+                }
+                
+            } catch (error) {
+                if (indicator && text) {
+                    indicator.className = 'status-indicator disconnected';
+                    text.textContent = '连接失败';
+                }
+                showStatus('连接测试失败: ' + error.message, 'error');
+            }
+        }
+
+        // 保存配置
+        async function saveConfig() {
+            try {
+                const config = collectFormData();
+                const errors = validateConfig(config);
+                
+                if (errors.length > 0) {
+                    showStatus('配置验证失败，请检查标红的字段', 'error');
+                    return;
+                }
+                
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                
+                if (response.ok) {
+                    configData = config;
+                    showStatus('配置保存成功', 'success');
+                    
+                    // 重新测试连接
+                    setTimeout(testConnection, 1000);
+                } else {
+                    const error = await response.text();
+                    showStatus('保存失败: ' + error, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 重置配置
+        async function resetConfig() {
+            if (confirm('确定要重置所有配置到默认值吗？此操作不可恢复。')) {
+                try {
+                    const response = await fetch('/api/config/reset', {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        await loadConfig();
+                        generateForm();
+                        showStatus('配置已重置为默认值', 'success');
+                        testConnection();
+                    } else {
+                        const error = await response.text();
+                        showStatus('重置失败: ' + error, 'error');
+                    }
+                    
+                } catch (error) {
+                    showStatus('重置失败: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // 清除数据
+        async function clearData() {
+            if (confirm('确定要清除所有本地数据吗？此操作不可恢复。')) {
+                try {
+                    const response = await fetch('/api/data/clear', {
+                        method: 'POST'
+                    });
+                    
+                    if (response.ok) {
+                        showStatus('本地数据已清除', 'success');
+                    } else {
+                        const error = await response.text();
+                        showStatus('清除失败: ' + error, 'error');
+                    }
+                    
+                } catch (error) {
+                    showStatus('清除失败: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', init);
+
+        // ========== 用户配置相关函数 ==========
+
+        // 用户配置状态
+        let userConfigState = {
+            isConfigured: false,
+            userId: null,
+            configPath: null,
+            firstUsed: null
+        };
+
+        // 检查用户配置状态
+        async function checkUserStatus() {
+            try {
+                const response = await loadUserConfigFromDisk();
+                if (response.success && response.config) {
+                    userConfigState = {
+                        isConfigured: true,
+                        userId: response.config.userId,
+                        configPath: response.configPath,
+                        firstUsed: response.config.firstUsed
+                    };
+                } else {
+                    userConfigState = {
+                        isConfigured: false,
+                        userId: null,
+                        configPath: response.configPath || getDefaultConfigPath(),
+                        firstUsed: null
+                    };
+                }
+                updateUserStatusUI();
+            } catch (error) {
+                console.error('检查用户状态失败:', error);
+                userConfigState.isConfigured = false;
+                updateUserStatusUI();
+            }
+        }
+
+        // 更新用户状态UI
+        function updateUserStatusUI() {
+            const statusDiv = document.getElementById('userStatus');
+            const indicator = document.getElementById('userStatusIndicator');
+            const userInfo = document.getElementById('userInfo');
+            const configPrompt = document.getElementById('userConfigPrompt');
+            const userIdInput = document.getElementById('userIdInput');
+
+            if (userConfigState.isConfigured) {
+                // 已配置状态
+                statusDiv.className = 'user-status configured';
+                indicator.className = 'status-indicator configured';
+                userInfo.style.display = 'block';
+                configPrompt.style.display = 'none';
+
+                // 更新用户信息显示
+                document.getElementById('currentUserId').textContent = userConfigState.userId;
+                document.getElementById('configFilePath').textContent = userConfigState.configPath;
+                document.getElementById('firstUsed').textContent = userConfigState.firstUsed || '未知';
+
+                // 填充输入框
+                userIdInput.value = userConfigState.userId;
+            } else {
+                // 未配置状态
+                statusDiv.className = 'user-status not-configured';
+                indicator.className = 'status-indicator not-configured';
+                userInfo.style.display = 'none';
+                configPrompt.style.display = 'block';
+
+                // 清空输入框
+                userIdInput.value = '';
+            }
+        }
+
+        // 从本地磁盘加载用户配置
+        async function loadUserConfigFromDisk() {
+            try {
+                const configPath = getDefaultConfigPath();
+                
+                // 使用文件API读取配置
+                const response = await fetch('file://' + configPath)
+                    .catch(() => null);
+                
+                if (response && response.ok) {
+                    const config = await response.json();
+                    return {
+                        success: true,
+                        config: config,
+                        configPath: configPath
+                    };
+                } else {
+                    return {
+                        success: false,
+                        config: null,
+                        configPath: configPath,
+                        error: '配置文件不存在'
+                    };
+                }
+            } catch (error) {
+                return {
+                    success: false,
+                    config: null,
+                    configPath: getDefaultConfigPath(),
+                    error: error.message
+                };
+            }
+        }
+
+        // 获取默认配置路径
+        function getDefaultConfigPath() {
+            // 根据操作系统返回适当的配置路径
+            if (navigator.platform.toLowerCase().includes('mac')) {
+                return '/Users/' + (window.navigator.userAgent.match(/\/([\w\s\.]+)\s+/) ? 
+                    window.navigator.userAgent.match(/\/([\w\s\.]+)\s+/)[1] : 'user') + 
+                    '/Library/Application Support/context-keeper/user-config.json';
+            } else {
+                return '~/.context-keeper/user-config.json';
+            }
+        }
+
+        // 生成新的用户ID
+        function generateNewUserId() {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const userId = 'user_' + result;
+            
+            document.getElementById('userIdInput').value = userId;
+            validateUserId();
+            
+            showStatus('已生成新的用户ID: ' + userId, 'success');
+        }
+
+        // 验证用户ID
+        function validateUserId() {
+            const input = document.getElementById('userIdInput');
+            const validation = document.getElementById('userIdValidation');
+            const saveBtn = document.getElementById('saveUserBtn');
+            let userId = input.value.trim();
+
+            // 清除之前的状态
+            input.style.borderColor = '#464647';
+            validation.style.color = '#888';
+
+            if (!userId) {
+                validation.textContent = '请输入用户ID或点击生成新ID';
+                saveBtn.disabled = true;
+                return false;
+            }
+
+            // 格式化用户ID（如果只输入了8位字符，自动添加前缀）
+            if (/^[a-z0-9]{8}$/.test(userId)) {
+                userId = 'user_' + userId;
+                input.value = userId;
+            }
+
+            // 验证格式
+            if (!/^user_[a-z0-9]{8}$/.test(userId)) {
+                validation.textContent = '❌ 用户ID格式无效（应为 user_xxxxxxxx，其中x为8位字母或数字）';
+                validation.style.color = '#ff6b6b';
+                input.style.borderColor = '#ff6b6b';
+                saveBtn.disabled = true;
+                return false;
+            }
+
+            // 验证通过
+            validation.textContent = '✅ 用户ID格式正确';
+            validation.style.color = '#4caf50';
+            input.style.borderColor = '#4caf50';
+            saveBtn.disabled = false;
+            return true;
+        }
+
+        // 保存用户配置
+        async function saveUserConfig() {
+            const userIdInput = document.getElementById('userIdInput');
+            const userId = userIdInput.value.trim();
+
+            if (!validateUserId()) {
+                showStatus('请先输入有效的用户ID', 'error');
+                return;
+            }
+
+            try {
+                const config = {
+                    userId: userId,
+                    firstUsed: new Date().toISOString()
+                };
+
+                const success = await writeUserConfigToDisk(config);
+                
+                if (success) {
+                    userConfigState = {
+                        isConfigured: true,
+                        userId: userId,
+                        configPath: getDefaultConfigPath(),
+                        firstUsed: config.firstUsed
+                    };
+                    
+                    updateUserStatusUI();
+                    showStatus('✅ 用户配置保存成功！Context-Keeper 现在可以正常使用了。', 'success');
+                } else {
+                    showStatus('❌ 保存失败，请检查文件权限', 'error');
+                }
+            } catch (error) {
+                console.error('保存用户配置失败:', error);
+                showStatus('❌ 保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 写入用户配置到磁盘
+        async function writeUserConfigToDisk(config) {
+            try {
+                // 由于浏览器安全限制，我们需要使用下载的方式来让用户保存文件
+                const configJson = JSON.stringify(config, null, 2);
+                const blob = new Blob([configJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'user-config.json';
+                
+                // 显示保存指引
+                showSaveInstructions(configJson, getDefaultConfigPath());
+                
+                // 触发下载
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                return true;
+            } catch (error) {
+                console.error('写入配置文件失败:', error);
+                return false;
+            }
+        }
+
+        // 显示保存指引
+        function showSaveInstructions(configContent, targetPath) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: #2d2d30; padding: 30px; border-radius: 8px; max-width: 600px; color: #d4d4d4;">
+                    <h3 style="color: #4fc3f7; margin-bottom: 20px;">📁 保存用户配置文件</h3>
+                    <p style="margin-bottom: 15px;">请将下载的 <code>user-config.json</code> 文件保存到以下位置：</p>
+                    <div style="background: #1e1e1e; padding: 15px; border-radius: 4px; font-family: monospace; margin: 15px 0;">
+                        ${targetPath}
+                    </div>
+                    <p style="margin-bottom: 20px; color: #ffa726;">💡 <strong>重要提示：</strong></p>
+                    <ul style="margin-bottom: 20px; color: #cccccc;">
+                        <li>确保目录 <code>~/Library/Application Support/context-keeper/</code> 存在</li>
+                        <li>如果目录不存在，请先创建该目录</li>
+                        <li>保存完成后，点击"刷新状态"来验证配置</li>
+                    </ul>
+                    <div style="text-align: center;">
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                style="background: #007acc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+                            知道了
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // 刷新用户状态
+        async function refreshUserStatus() {
+            showStatus('正在检查用户配置...', 'info');
+            await checkUserStatus();
+            showStatus('用户状态已刷新', 'success');
+        }
+
+        // 清除用户配置
+        async function clearUserConfig() {
+            if (confirm('确定要清除用户配置吗？此操作需要手动删除配置文件。')) {
+                userConfigState = {
+                    isConfigured: false,
+                    userId: null,
+                    configPath: getDefaultConfigPath(),
+                    firstUsed: null
+                };
+                
+                updateUserStatusUI();
+                
+                // 显示删除指引
+                const configPath = getDefaultConfigPath();
+                showStatus(`请手动删除配置文件: ${configPath}`, 'warning');
+            }
+        }
+
+        // 增强初始化函数
+        const originalInit = init;
+        init = async function() {
+            // 首先检查用户状态
+            await checkUserStatus();
+            
+            // 然后执行原有的初始化
+            if (originalInit) {
+                await originalInit();
+            }
+        };
+
+        // 为用户ID输入框添加实时验证
+        document.addEventListener('DOMContentLoaded', function() {
+            const userIdInput = document.getElementById('userIdInput');
+            if (userIdInput) {
+                userIdInput.addEventListener('input', function() {
+                    // 延迟验证，避免频繁触发
+                    clearTimeout(this.validateTimeout);
+                    this.validateTimeout = setTimeout(validateUserId, 500);
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

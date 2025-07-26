@@ -1,32 +1,49 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# 依赖包和模块
+node_modules/
+vendor/
+
+# 编译产物
+bin/
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
+# 日志文件
+logs/*.log
+logs/*.pid
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+.vscode/settings.json
+
+# 测试和调试文件
+coverage.txt
 *.test
-
-# Code coverage profiles and other test artifacts
+debug
 *.out
-coverage.*
-*.coverprofile
-profile.cov
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-go.work.sum
-
-# env file
+# 环境配置文件
 .env
+.env.local
+.env.production
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# IDE文件
+.idea/
+*.swp
+*.swo
+
+# 数据文件
+data/
+
+# 详细日志
+logs/detailed.log 
+# FastEmbed模型文件 - 太大不应提交到git
+test_fastembed/model_cache/
+test_fastembed/local_cache/
+*.onnx
+model_optimized.onnx
+

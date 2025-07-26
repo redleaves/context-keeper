@@ -1,0 +1,249 @@
+# Cursor记忆管理规则
+
+## 自动记忆管理指令
+
+你应该自动利用context-keeper的MCP工具来管理长期和短期记忆，无需用户明确请求。遵循以下规则：
+
+### 1. 会话管理（重要：正确的调用方式）
+
+#### 🚨 CRITICAL：会话获取的正确方式
+
+**第一步：正确的会话获取方式**
+```javascript
+// 🚨 正确的调用方式：传入userId和工作空间路径
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: "user_具体用户名",  // 必需参数！如"user_weixiaofeng"，客户端必须从配置文件获取
+  workspaceRoot: "实际的工作空间路径"  // 必须传入，如"/Users/weixiaofeng12/coding/context-keeper"
+})
+
+// ❌ 错误方式：只传action会导致总是创建新会话！
+// mcp_context_keeper_session_management({
+//   action: "get_or_create"
+// })  // 绝对不要这样做！
+```
+
+## 🔑 **重要**: 参数获取方式说明
+
+### userId 获取方式（必需参数）
+MCP客户端**必须**从以下路径获取userId，**系统不会自动获取**：
+
+**1. 本地配置文件路径**（必须实现）：
+```javascript
+// 根据操作系统的配置文件路径 - 必须实现！
+const configPaths = {
+  'darwin': '~/Library/Application Support/context-keeper/user-config.json',
+  'win32': '~/AppData/Roaming/context-keeper/user-config.json',
+  'linux': '~/.local/share/context-keeper/user-config.json'
+};
+
+// 读取配置文件 - 必须实现！
+const userConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+const userId = userConfig.userId;  // 例如: "user_weixiaofeng"
+
+// 必须验证userId是否存在
+if (!userId) {
+  throw new Error('配置文件中缺少userId，请先完成用户初始化');
+}
+```
+
+### workspaceRoot 获取方式（必需参数）
+MCP客户端必须传入当前工作空间的完整路径：
+
+```javascript
+const path = require('path');
+
+// 获取当前工作空间路径
+const workspaceRoot = path.resolve(process.cwd());
+// 例如: "/Users/weixiaofeng12/coding/context-keeper"
+
+// 或者从VSCode工作空间获取
+const vscode = require('vscode');
+const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+```
+
+### 完整调用示例
+```javascript
+// 完整的MCP客户端调用示例
+async function createOrGetSession() {
+  // 1. 获取工作空间路径（必需）
+  const workspaceRoot = path.resolve(process.cwd());
+  
+  // 2. 获取userId（必需！不能省略）
+  const userId = await getUserId(); // 必须步骤，不能依赖系统自动获取！
+  
+  // 3. 正确调用MCP工具
+  const result = await mcp_context_keeper_session_management({
+    action: "get_or_create",
+    userId: userId,           // 必需！例如: "user_weixiaofeng"
+    workspaceRoot: workspaceRoot  // 必需！例如: "/Users/weixiaofeng12/coding/context-keeper"
+  });
+  
+  return result;
+}
+```
+
+**第二步：如果发现会话隔离问题，处理WebSocket会话兼容性**
+```javascript
+// 检查客户端实际使用的会话
+mcp_context_keeper_session_management({
+  action: "get",
+  sessionId: "客户端实际的会话ID",  // 从日志或错误信息获取
+  userId: "客户端的用户ID",        // 必需！
+  workspaceRoot: "客户端的工作空间路径"
+})
+
+// 如果客户端会话需要修复
+mcp_context_keeper_session_management({
+  action: "update",
+  sessionId: "客户端实际的会话ID",
+  userId: "客户端的用户ID",        // 必需！
+  workspaceRoot: "客户端的工作空间路径",
+  metadata: {
+    "source": "websocket_fixed"
+  }
+})
+```
+
+**第三步：测试get_or_create是否能正确找到现有会话**
+```javascript
+// 使用正确的参数再次调用
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: "客户端的用户ID",    // 必需！
+  workspaceRoot: "客户端的工作空间路径"
+})
+```
+
+#### 🔍 会话隔离问题诊断
+如果遇到会话不匹配问题，检查以下内容：
+- 工作空间路径是否一致
+- 用户ID是否被正确获取
+- WebSocket客户端创建的会话是否包含workspaceRoot顶级参数
+- MCP工具调用是否传入了正确的workspaceRoot
+
+### 2. 短期记忆存储
+在以下情况下自动存储短期记忆：
+- 完成一轮问答交互后
+- 执行代码编辑操作后
+- 产生重要的调试信息时
+- 讨论到决策点时
+
+```javascript
+mcp_context_keeper_store_conversation({
+  sessionId: "当前会话ID",
+  messages: [
+    {role: "user", content: "用户消息"},
+    {role: "assistant", content: "助手回复"}
+  ]
+})
+```
+
+### 3. 长期记忆存储
+在以下情况下自动存储长期记忆：
+- 发现重要的架构决策
+- 记录重要的解决方案
+- 识别重要的最佳实践
+- 用户明确表示这是重要信息时
+- 用户明确发出长期记忆指令时
+
+```javascript
+mcp_context_keeper_memorize_context({
+  sessionId: "当前会话ID",
+  content: "重要内容",
+  priority: "P1" // P1(高), P2(中), P3(低)
+})
+```
+
+- 记录代办（或者用户发出需要记录代办相关的语义时候）
+- 创建待办事项时，必须在metadata中设置type为"todo"
+```javascript
+mcp_context_keeper_memorize_context({
+  sessionId: "当前会话ID",
+  content: "[TODO] 待办事项内容",
+  priority: "P1", // P1(高), P2(中), P3(低)
+  metadata: {"type": "todo"} // 必须添加以将内容标记为待办类型
+})
+```
+
+
+### 4. 记忆检索和使用
+在以下情况下自动检索记忆：
+- 开始回答新问题前
+- 需要参考历史上下文时
+- 问题涉及之前讨论过的主题时
+
+```javascript
+mcp_context_keeper_retrieve_context({
+  sessionId: "当前会话ID",
+  query: "相关查询内容"
+})
+```
+### 5. 待办事项管理
+- 待办事项检索：当需要专门检索待办事项时（用户有明确的查询我的代办之类的语义的时候），必须使用`retrieve_todos`工具而不是一般的向量检索工具。
+
+```javascript
+mcp_context_keeper_retrieve_todos({
+  sessionId: "当前会话ID"
+})
+```
+
+### 6. 用户初始化流程
+当你收到工具调用的响应中包含以下任一信息时，必须立即发起用户初始化对话：
+- 响应中包含`"needUserInit": true`
+- 响应中包含`"initPrompt": "需要进行用户初始化才能将记忆与您的个人账户关联。请完成用户初始化流程。"`
+- 响应中包含错误消息："操作被拒绝：请先完成用户初始化"
+- 响应中包含状态："user_init_required"
+- 任何提到"用户初始化"、"用户未初始化"、"数据隔离安全性"的错误消息
+
+用户初始化流程的步骤：
+1. 首先向用户解释需要初始化用户信息
+2. 调用不带用户响应的`user_init_dialog`工具获取初始化提示
+```javascript
+mcp_context_keeper_user_init_dialog({
+  sessionId: "当前会话ID"
+})
+```
+3. 将收到的提示呈现给用户，等待用户回答（必须在收到用户的确认回复：是或者否 之后才能继续下一步）
+4. 收到用户回答后，将回答传递给工具
+```javascript
+mcp_context_keeper_user_init_dialog({
+  sessionId: "当前会话ID",
+  userResponse: "用户回答" // 例如"是"或"否"
+})
+```
+5. 当收到新用户信息后，清晰展示用户ID和访问码，并提醒用户妥善保管这些信息，例如：
+   "太好了！系统已为您创建了新用户账号。详细信息如下：
+   用户ID: [用户ID]
+   访问码: [访问码]
+   欢迎使用上下文记忆管理工具！您的数据将与您的用户ID关联。请妥善保管您的访问码，当您在其他设备使用时需要输入它。"
+
+
+### 7. 优先级判断标准
+- P1（高）：架构设计、重要bug、核心功能、项目约定
+- P2（中）：常规问题、代码优化、工具使用、配置修改
+- P3（低）：日常交互、调试信息、一般性讨论
+
+## 关键词触发器
+以下关键词应自动触发长期记忆存储：
+- "重要决策"
+- "核心架构"
+- "最佳实践"
+- "项目规范"
+- "技术债务"
+- "必须记住"
+- "关键点"
+- "特别注意"
+- "重点关注"
+- "记录代办"
+
+
+## 执行规则
+
+1. 主动识别和标记重要信息
+2. 自动建立信息之间的关联
+3. 定期整理和优化存储的记忆
+4. 每次响应前，检查是否需要检索历史上下文
+5. 每次响应后，评估信息重要性并决定存储策略 
+6. 注意监测`needUserInit`状态，及时进行用户初始化提示
+7. 创建待办事项时，必须在metadata中设置type为"todo"

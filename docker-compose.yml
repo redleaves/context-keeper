@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  context-keeper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        BUILD_TIME: ${BUILD_TIME}
+        COMMIT_HASH: ${COMMIT_HASH}
+    
+    image: context-keeper:${VERSION:-latest}
+    
+    container_name: context-keeper
+    
+    restart: unless-stopped
+    
+    # 环境变量
+    environment:
+      - RUN_MODE=${RUN_MODE:-http}
+      - HTTP_SERVER_PORT=${HTTP_SERVER_PORT:-8088}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - STORAGE_PATH=/app/data
+      - TZ=${TZ:-Asia/Shanghai}
+    
+    # 端口映射
+    ports:
+      - "${HOST_PORT:-8088}:${HTTP_SERVER_PORT:-8088}"
+    
+    # 卷挂载
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config:/app/config
+    
+    # 健康检查
+    healthcheck:
+      test: |
+        if [ "$RUN_MODE" = "http" ]; then
+          curl -f http://localhost:${HTTP_SERVER_PORT:-8088}/health || exit 1
+        else
+          pgrep -f context-keeper || exit 1
+        fi
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # 网络配置
+    networks:
+      - context-keeper-network
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # 可选：Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: context-keeper-nginx
+    restart: unless-stopped
+    
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    
+    depends_on:
+      - context-keeper
+    
+    networks:
+      - context-keeper-network
+    
+    profiles:
+      - proxy
+
+  # 可选：监控服务
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: context-keeper-prometheus
+    restart: unless-stopped
+    
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    
+    networks:
+      - context-keeper-network
+    
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: context-keeper-grafana
+    restart: unless-stopped
+    
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    
+    depends_on:
+      - prometheus
+    
+    networks:
+      - context-keeper-network
+    
+    profiles:
+      - monitoring
+
+networks:
+  context-keeper-network:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data: 

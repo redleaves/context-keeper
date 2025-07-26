@@ -1,0 +1,364 @@
+{
+  "name": "context-keeper",
+  "display_name": "Context Keeper",
+  "description": "编程上下文保持服务，用于增强大模型的代码理解能力",
+  "version": "1.0.0",
+  "publisher": "ContextKeeper Team",
+  "protocol": "mcp/v1",
+  "schema_version": "mcp/v1",
+  "id": "context-keeper",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "capabilities": ["tools"],
+  "tools": [
+    {
+      "name": "associate_file",
+      "description": "关联代码文件到当前编程会话",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "filePath": {
+            "type": "string",
+            "description": "文件路径"
+          }
+        },
+        "required": ["sessionId", "filePath"]
+      }
+    },
+    {
+      "name": "record_edit",
+      "description": "记录代码编辑操作",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "filePath": {
+            "type": "string",
+            "description": "文件路径"
+          },
+          "diff": {
+            "type": "string",
+            "description": "编辑差异内容"
+          }
+        },
+        "required": ["sessionId", "filePath", "diff"]
+      }
+    },
+    {
+      "name": "retrieve_context",
+      "description": "基于查询检索相关编程上下文",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "query": {
+            "type": "string",
+            "description": "查询内容"
+          }
+        },
+        "required": ["sessionId", "query"]
+      }
+    },
+    {
+      "name": "programming_context",
+      "description": "获取编程特征和上下文摘要",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "query": {
+            "type": "string",
+            "description": "可选查询参数"
+          }
+        },
+        "required": ["sessionId"]
+      }
+    },
+    {
+      "name": "session_management",
+      "description": "创建或获取会话信息",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "操作类型: get_or_create",
+            "enum": ["get_or_create"]
+          },
+          "userId": {
+            "type": "string",
+            "description": "用户ID，必需参数。客户端必须从以下路径获取：macOS: ~/Library/Application Support/context-keeper/user-config.json, Windows: ~/AppData/Roaming/context-keeper/user-config.json, Linux: ~/.local/share/context-keeper/user-config.json，读取其中的userId字段"
+          },
+          "workspaceRoot": {
+            "type": "string",
+            "description": "工作空间根路径，必需参数，用于会话隔离，确保不同工作空间的session完全独立"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "会话元数据，可选"
+          }
+        },
+        "required": ["action", "userId", "workspaceRoot"]
+      }
+    },
+    {
+      "name": "store_conversation",
+      "description": "存储并总结当前对话内容到短期记忆",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "messages": {
+            "type": "array",
+            "description": "对话消息列表",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "description": "角色: user, assistant, system"
+                },
+                "content": {
+                  "type": "string",
+                  "description": "消息内容"
+                }
+              }
+            }
+          },
+          "batchId": {
+            "type": "string",
+            "description": "批次ID，可选，不提供则自动生成"
+          }
+        },
+        "required": ["sessionId", "messages"]
+      }
+    },
+    {
+      "name": "retrieve_memory",
+      "description": "基于memoryId或batchId检索历史对话",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "memoryId": {
+            "type": "string",
+            "description": "记忆ID"
+          },
+          "batchId": {
+            "type": "string",
+            "description": "批次ID"
+          },
+          "id": {
+            "type": "string",
+            "description": "主键ID，可以是批次ID或记忆ID"
+          },
+          "format": {
+            "type": "string",
+            "description": "返回格式: full, summary",
+            "enum": ["full", "summary"]
+          }
+        },
+        "required": ["sessionId"]
+      }
+    },
+    {
+      "name": "memorize_context",
+      "description": "将重要内容汇总并存储到长期记忆",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "content": {
+            "type": "string",
+            "description": "要记忆的内容"
+          },
+          "priority": {
+            "type": "string",
+            "description": "优先级，可选: P1(高), P2(中), P3(低)，默认P2"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "记忆相关的元数据，可选"
+          }
+        },
+        "required": ["sessionId", "content"]
+      }
+    },
+    {
+      "name": "create_decision",
+      "description": "创建设计决策记录",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "决策标题"
+          },
+          "description": {
+            "type": "string",
+            "description": "决策描述"
+          },
+          "category": {
+            "type": "string",
+            "description": "决策类别，如：架构、接口、算法等"
+          },
+          "relatedEdits": {
+            "type": "array",
+            "description": "相关的编辑ID列表",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "决策标签",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "string",
+            "description": "优先级，可选: P1(高), P2(中), P3(低)，默认P1"
+          }
+        },
+        "required": ["sessionId", "title", "description"]
+      }
+    },
+    {
+      "name": "link_decision",
+      "description": "关联决策与代码编辑",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          },
+          "decisionId": {
+            "type": "string",
+            "description": "决策ID"
+          },
+          "editIds": {
+            "type": "array",
+            "description": "编辑ID列表",
+            "items": {
+              "type": "string"
+            }
+          },
+          "strength": {
+            "type": "number",
+            "description": "关联强度，0.0-1.0之间，默认1.0"
+          },
+          "description": {
+            "type": "string",
+            "description": "关联描述"
+          }
+        },
+        "required": ["sessionId", "decisionId", "editIds"]
+      }
+    },
+    {
+      "name": "get_decisions",
+      "description": "获取会话的设计决策",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          }
+        },
+        "required": ["sessionId"]
+      }
+    },
+    {
+      "name": "link_sessions",
+      "description": "关联两个会话",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "description": "源会话ID"
+          },
+          "targetId": {
+            "type": "string",
+            "description": "目标会话ID"
+          },
+          "relationship": {
+            "type": "string",
+            "description": "关系类型：continuation(延续), reference(引用), related(相关)",
+            "enum": ["continuation", "reference", "related"]
+          },
+          "description": {
+            "type": "string",
+            "description": "关联描述"
+          }
+        },
+        "required": ["sourceId", "targetId", "relationship"]
+      }
+    },
+    {
+      "name": "get_linked_sessions",
+      "description": "获取与当前会话关联的会话",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "当前会话ID"
+          }
+        },
+        "required": ["sessionId"]
+      }
+    }
+  ],
+  "endpoints": {
+            "base_url": "http://localhost:8088",
+    "healthcheck": "/health",
+    "sse_path": "/sse",
+    "rpc_path": "/rpc"
+  },
+  "auth": {
+    "type": "none"
+  },
+  "requirements": {
+    "cursor_version": ">=0.10.0"
+  },
+  "permissions": [
+    {
+      "name": "read_file",
+      "description": "读取文件内容以进行上下文分析"
+    },
+    {
+      "name": "track_edits", 
+      "description": "跟踪文件编辑操作以维护上下文历史"
+    }
+  ],
+  "tags": ["programming", "context", "code-intelligence", "mcp"]
+} 

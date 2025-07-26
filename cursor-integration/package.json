@@ -1,0 +1,251 @@
+{
+  "name": "context-keeper",
+  "displayName": "Context-Keeper",
+  "description": "智能编程上下文管理助手，提供记忆存储、代码关联和实时监控",
+  "version": "1.0.0",
+  "publisher": "context-keeper",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Notebooks"
+  ],
+  "keywords": [
+    "ai",
+    "context",
+    "memory",
+    "programming",
+    "assistant",
+    "mcp"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./cursor-vscode-extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "context-keeper.showStatus",
+        "title": "显示状态面板",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.openSettings",
+        "title": "打开设置",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.showLogs",
+        "title": "显示日志",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.testConnection",
+        "title": "测试连接",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.resetConfig",
+        "title": "重置配置",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.exportConfig",
+        "title": "导出配置",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.importConfig",
+        "title": "导入配置",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.clearData",
+        "title": "清除数据",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.backupData",
+        "title": "备份数据",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.showUserData",
+        "title": "显示用户数据",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.start",
+        "title": "启动服务",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.stop",
+        "title": "停止服务",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.restart",
+        "title": "重启服务",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.saveUserConfig",
+        "title": "保存用户配置",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.editUserConfig",
+        "title": "编辑用户配置",
+        "category": "Context-Keeper"
+      },
+      {
+        "command": "context-keeper.resetUserConfig",
+        "title": "重置用户配置",
+        "category": "Context-Keeper"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "context-keeper.showStatus",
+          "when": "true"
+        },
+        {
+          "command": "context-keeper.openSettings",
+          "when": "true"
+        },
+        {
+          "command": "context-keeper.testConnection",
+          "when": "true"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "context-keeper.showStatus",
+          "when": "view == context-keeper-view",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Context-Keeper",
+      "properties": {
+        "context-keeper.serverURL": {
+          "type": "string",
+          "default": "http://localhost:8088",
+          "description": "Context-Keeper服务器URL"
+        },
+        "context-keeper.websocketURL": {
+          "type": "string",
+          "default": "",
+          "description": "WebSocket服务器URL(留空自动从serverURL生成)"
+        },
+        "context-keeper.timeout": {
+          "type": "number",
+          "default": 15000,
+          "description": "连接超时时间(毫秒)"
+        },
+        "context-keeper.userId": {
+          "type": "string",
+          "default": "",
+          "description": "用户ID(留空自动生成)"
+        },
+        "context-keeper.autoCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动捕获编程活动"
+        },
+        "context-keeper.autoAssociate": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动关联相关文件"
+        },
+        "context-keeper.autoRecord": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动记录代码编辑"
+        },
+        "context-keeper.captureInterval": {
+          "type": "number",
+          "default": 30,
+          "description": "捕获间隔(秒)"
+        },
+        "context-keeper.webSocket.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "自动连接WebSocket服务"
+        },
+        "context-keeper.webSocket.reconnectAttempts": {
+          "type": "number",
+          "default": 5,
+          "description": "WebSocket重连尝试次数"
+        },
+        "context-keeper.ui.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "显示状态栏"
+        },
+        "context-keeper.ui.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "显示通知"
+        },
+        "context-keeper.logging.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用日志记录"
+        },
+        "context-keeper.logging.level": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info",
+          "description": "日志级别"
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "context-keeper-view",
+          "name": "Context-Keeper",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "context-keeper-container",
+          "title": "Context-Keeper",
+          "icon": "$(brain)"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node -e \"console.log('No compilation needed for this extension')\"",
+    "watch": "node -e \"console.log('No watch needed for this extension')\"",
+    "test": "node test.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "^16.18.0"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/context-keeper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/context-keeper/issues"
+  },
+  "homepage": "https://github.com/your-username/context-keeper#readme",
+  "license": "MIT",
+  "icon": "icon.png"
+} 

@@ -1,0 +1,95 @@
+{
+  "components": {
+    "retrieval_filter": {
+      "enabled": true,
+      "rules": ["too_short", "too_vague", "semantic_enhanced"],
+      "priority": 100,
+      "config": {
+        "min_query_length": 3,
+        "max_query_length": 200,
+        "confidence_threshold": 0.7,
+        "enable_logging": true
+      }
+    },
+    "query_rewriter": {
+      "enabled": false,
+      "keyword_extractor": false,
+      "noise_reducer": false,
+      "context_enricher": false,
+      "priority": 90,
+      "config": {
+        "max_iterations": 3,
+        "quality_threshold": 0.8,
+        "enable_detailed_logging": true,
+        "keyword_extraction": {
+          "enabled": true,
+          "methods": ["tfidf", "keyword_density", "named_entity", "technical_terms"],
+          "min_weight": 0.3,
+          "max_keywords": 10
+        },
+        "noise_reduction": {
+          "enabled": true,
+          "stop_words": ["怎么", "如何", "什么", "哪个", "请问", "请", "帮我"],
+          "filler_phrases": ["的话", "的时候", "一下", "看看"],
+          "min_length": 2
+        },
+        "context_enrichment": {
+          "enabled": true,
+          "domain_terms": ["技术", "算法", "架构", "性能", "优化", "开发", "编程"],
+          "synonym_expansion": true,
+          "related_concepts": true
+        }
+      }
+    },
+    "iterative_retrieval": {
+      "enabled": true,
+      "max_iterations": 5,
+      "quality_check": true,
+      "rewrite_rules": true,
+      "priority": 80,
+      "config": {
+        "quality_threshold": 0.7,
+        "improvement_threshold": 0.05,
+        "timeout_seconds": 30,
+        "enable_detailed_logging": true
+      }
+    },
+    "quality_evaluator": {
+      "enabled": true,
+      "priority": 70,
+      "config": {
+        "relevance_weight": 0.5,
+        "diversity_weight": 0.2,
+        "completeness_weight": 0.3,
+        "min_score_threshold": 0.6
+      }
+    }
+  },
+  "retrieval_decision": {
+    "enabled": true,
+    "confidence_threshold": 0.6,
+    "max_retries": 3
+  },
+  "query_optimization": {
+    "enabled": true,
+    "hyde_enabled": true,
+    "query2doc_enabled": true,
+    "max_expansions": 5
+  },
+  "quality_evaluation": {
+    "enabled": true,
+    "relevance_threshold": 0.7,
+    "diversity_weight": 0.3
+  },
+  "experimental": {
+    "multi_hop_reasoning": true,
+    "semantic_cache": true,
+    "query_decomposition": true
+  },
+  "logging": {
+    "enabled": true,
+    "detailed_comparison": true,
+    "performance_metrics": true,
+    "export_format": "json"
+  }
+} 
