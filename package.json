@@ -1,0 +1,57 @@
+{
+  "name": "cursor-memory-manager",
+  "displayName": "Cursor Memory Manager",
+  "description": "智能记忆管理系统for Cursor",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursor-memory.storeMemory",
+        "title": "Store Memory",
+        "category": "Cursor Memory"
+      },
+      {
+        "command": "cursor-memory.retrieveMemory",
+        "title": "Retrieve Memory",
+        "category": "Cursor Memory"
+      }
+    ],
+    "configuration": {
+      "title": "Cursor Memory Manager",
+      "properties": {
+        "cursorMemory.autoStore": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否自动存储记忆"
+        },
+        "cursorMemory.storageLocation": {
+          "type": "string",
+          "default": "./data",
+          "description": "记忆存储位置"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node ./test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^14.17.0",
+    "@types/vscode": "^1.60.0"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.18.3"
+  }
+}

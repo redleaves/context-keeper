@@ -62,6 +62,22 @@ func (a *AliyunVectorStore) CountMemories(sessionID string) (int, error) {
 	return a.vectorService.CountSessionMemories(sessionID)
 }
 
+// StoreEnhancedMemory 存储增强的多维度记忆（新增方法）
+func (a *AliyunVectorStore) StoreEnhancedMemory(memory *models.EnhancedMemory) error {
+	log.Printf("[阿里云向量存储] 存储增强记忆: ID=%s, 会话=%s", memory.Memory.ID, memory.Memory.SessionID)
+
+	// 调用底层向量服务的增强存储方法
+	return a.vectorService.StoreEnhancedMemory(memory)
+}
+
+// StoreEnhancedMessage 存储增强的多维度消息（新增方法）
+func (a *AliyunVectorStore) StoreEnhancedMessage(message *models.EnhancedMessage) error {
+	log.Printf("[阿里云向量存储] 存储增强消息: ID=%s, 会话=%s", message.Message.ID, message.Message.SessionID)
+
+	// 调用底层向量服务的增强存储方法
+	return a.vectorService.StoreEnhancedMessage(message)
+}
+
 // =============================================================================
 // VectorSearcher 接口实现
 // =============================================================================

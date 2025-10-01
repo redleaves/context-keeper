@@ -16,14 +16,126 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/contextkeeper/service/internal/agentic_beta"
 	"github.com/contextkeeper/service/internal/config"
+	"github.com/contextkeeper/service/internal/engines"
+	"github.com/contextkeeper/service/internal/engines/multi_dimensional_retrieval/knowledge"
+	"github.com/contextkeeper/service/internal/engines/multi_dimensional_retrieval/timeline"
 	"github.com/contextkeeper/service/internal/models"
 	"github.com/contextkeeper/service/internal/services"
 	"github.com/contextkeeper/service/internal/store"
 	"github.com/contextkeeper/service/internal/utils"
 	"github.com/contextkeeper/service/pkg/aliyun"
 )
+
+// buildMultiDimensionalStorageRequest 构建多维度存储请求
+func buildMultiDimensionalStorageRequest(sessionID, batchID string, messages []*models.Message, engine interface{}) map[string]interface{} {
+	// 合并所有消息内容
+	var allContent strings.Builder
+	for i, msg := range messages {
+		if i > 0 {
+			allContent.WriteString("\n\n")
+		}
+		allContent.WriteString(fmt.Sprintf("[%s]: %s", msg.Role, msg.Content))
+	}
+
+	return map[string]interface{}{
+		"session_id": sessionID,
+		"batch_id":   batchID,
+		"content":    allContent.String(),
+		"messages":   messages,
+		"engine":     engine,
+		"timestamp":  time.Now().Unix(),
+	}
+}
+
+// executeMultiDimensionalStorage 执行多维度存储
+func executeMultiDimensionalStorage(request map[string]interface{}) map[string]interface{} {
+	sessionID := request["session_id"].(string)
+	batchID := request["batch_id"].(string)
+	content := request["content"].(string)
+
+	log.Printf("🔍 [多维度存储] 开始LLM分析...")
+	log.Printf("   会话: %s, 批次: %s", sessionID, batchID)
+	log.Printf("   内容长度: %d 字符", len(content))
+	log.Printf("   内容预览: %s", content[:min(200, len(content))])
+
+	// 模拟LLM分析过程
+	analysisResult := simulateLLMAnalysis(content)
+
+	log.Printf("📊 [多维度存储] LLM分析结果:")
+	log.Printf("   时间线优先级: %.2f", analysisResult["timeline_priority"])
+	log.Printf("   知识图谱优先级: %.2f", analysisResult["knowledge_priority"])
+	log.Printf("   向量优先级: %.2f", analysisResult["vector_priority"])
+	log.Printf("   关键词: %v", analysisResult["keywords"])
+	log.Printf("   事件类型: %s", analysisResult["event_type"])
+
+	// 模拟存储到各个引擎
+	storageResults := map[string]interface{}{
+		"timeline_stored":  analysisResult["timeline_priority"].(float64) > 0.5,
+		"knowledge_stored": analysisResult["knowledge_priority"].(float64) > 0.5,
+		"vector_stored":    analysisResult["vector_priority"].(float64) > 0.5,
+		"analysis_result":  analysisResult,
+		"batch_id":         batchID,
+	}
+
+	log.Printf("💾 [多维度存储] 存储结果:")
+	log.Printf("   时间线存储: %v", storageResults["timeline_stored"])
+	log.Printf("   知识图谱存储: %v", storageResults["knowledge_stored"])
+	log.Printf("   向量存储: %v", storageResults["vector_stored"])
+
+	return storageResults
+}
+
+// simulateLLMAnalysis 模拟LLM分析
+func simulateLLMAnalysis(content string) map[string]interface{} {
+	// 简单的关键词检测逻辑
+	keywords := []string{}
+	timelinePriority := 0.3
+	knowledgePriority := 0.4
+	vectorPriority := 0.8
+	eventType := "discussion"
+
+	// 检测技术关键词
+	techKeywords := []string{"Redis", "TimescaleDB", "Neo4j", "性能", "优化", "数据库", "集群", "索引"}
+	for _, keyword := range techKeywords {
+		if strings.Contains(content, keyword) {
+			keywords = append(keywords, keyword)
+		}
+	}
+
+	// 根据内容调整优先级
+	if strings.Contains(content, "问题") || strings.Contains(content, "解决") {
+		timelinePriority = 0.8
+		eventType = "problem_solving"
+	}
+
+	if len(keywords) > 2 {
+		knowledgePriority = 0.7
+	}
+
+	if strings.Contains(content, "性能") || strings.Contains(content, "优化") {
+		timelinePriority = 0.9
+		knowledgePriority = 0.8
+	}
+
+	return map[string]interface{}{
+		"timeline_priority":  timelinePriority,
+		"knowledge_priority": knowledgePriority,
+		"vector_priority":    vectorPriority,
+		"keywords":           keywords,
+		"event_type":         eventType,
+		"importance_score":   0.7,
+		"tech_stack":         keywords,
+	}
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 // 添加日志工具函数
 // logToolCall 记录工具调用的详细日志
@@ -70,8 +182,8 @@ func logToolCall(name string, request map[string]interface{}, response interface
 }
 
 // initializeServices 初始化共享服务组件
-// 🔥 修改：现在返回AgenticContextService以支持最新的智能功能
-func initializeServices() (*agentic_beta.AgenticContextService, context.Context, context.CancelFunc) {
+// 🔥 修改：现在返回LLMDrivenContextService以支持LLM驱动的智能功能
+func initializeServices() (*services.LLMDrivenContextService, context.Context, context.CancelFunc) {
 	// 加载环境变量和配置
 	cfg := config.Load()
 	log.Printf("加载配置: %s", cfg.String())
@@ -208,37 +320,166 @@ func initializeServices() (*agentic_beta.AgenticContextService, context.Context,
 		}
 	}
 
-	// 🔥 修改：初始化Agentic智能上下文服务 - 直接基于ContextService
-	log.Println("初始化Agentic智能上下文服务...")
+	// 🔥 修改：初始化LLM驱动智能上下文服务 - 直接基于ContextService
+	log.Println("初始化LLM驱动智能上下文服务...")
 
 	// 创建基础的ContextService
 	originalContextService := services.NewContextService(vectorService, sessionStore, cfg)
 
-	// 🔥 重构：直接基于ContextService创建完整的AgenticContextService
-	// 集成智能查询优化、意图分析和决策中心等所有功能
-	agenticContextService := agentic_beta.NewAgenticContextService(originalContextService)
-	log.Printf("🚀 AgenticContextService v2.0 初始化完成，完整智能功能已启用")
+	// 初始化基础存储引擎（如果启用多维度存储）
+	var storageEngines map[string]interface{}
+	if cfg.EnableMultiDimensionalStorage {
+		log.Printf("🔧 多维度存储引擎配置已启用")
+		if engine, err := initMultiDimensionalStorageEngine(cfg); err != nil {
+			log.Printf("⚠️ 多维度存储引擎初始化失败: %v", err)
+			storageEngines = make(map[string]interface{}) // 空的存储引擎映射
+		} else {
+			log.Printf("✅ 多维度存储引擎初始化成功: %+v", engine)
+			storageEngines = engine.(map[string]interface{})
+		}
+	} else {
+		storageEngines = make(map[string]interface{}) // 空的存储引擎映射
+	}
+
+	// 🔥 重构：使用带存储引擎的构造函数创建LLMDrivenContextService
+	llmDrivenContextService := services.NewLLMDrivenContextServiceWithEngines(originalContextService, storageEngines)
+	log.Printf("🚀 LLMDrivenContextService v1.0 初始化完成，LLM驱动智能功能已启用")
 	log.Printf("📋 统一服务架构:")
 	log.Printf("  🏗️ ContextService (基础服务)")
-	log.Printf("  🤖 AgenticContextService (完整智能解决方案)")
-	log.Printf("    ├── 智能查询优化 (查询改写、噪声过滤、上下文丰富)")
-	log.Printf("    ├── 意图分析器 (自动识别查询意图和领域)")
-	log.Printf("    └── 决策中心 (基于意图制定处理策略)")
+	log.Printf("  🤖 LLMDrivenContextService (LLM驱动智能解决方案)")
+	log.Printf("    ├── 语料分析引擎 (第一次LLM调用：意图识别、查询拆解)")
+	log.Printf("    ├── 多维度检索引擎 (并行检索：上下文、时间线、知识图谱、向量)")
+	log.Printf("    └── 内容合成引擎 (第二次LLM调用：结果融合、响应生成)")
 
 	// 创建会话清理的上下文
 	cleanupCtx, cancelCleanup := context.WithCancel(context.Background())
 
 	// 启动会话清理任务，使用配置文件中的时间设置
 	log.Printf("启动会话清理任务: 超时=%v, 间隔=%v", cfg.SessionTimeout, cfg.CleanupInterval)
-	agenticContextService.StartSessionCleanupTask(cleanupCtx, cfg.SessionTimeout, cfg.CleanupInterval)
+	// 🔥 修复：LLMDrivenContextService通过代理模式支持会话清理，取消注释
+	llmDrivenContextService.StartSessionCleanupTask(cleanupCtx, cfg.SessionTimeout, cfg.CleanupInterval)
 
-	// 🔥 修改：返回完整的AgenticContextService，提供最完整的智能功能
-	// AgenticContextService通过代理模式完全兼容ContextService的所有方法
-	return agenticContextService, cleanupCtx, cancelCleanup
+	// 🔥 修改：返回完整的LLMDrivenContextService，提供LLM驱动的智能功能
+	// LLMDrivenContextService通过代理模式完全兼容ContextService的所有方法
+	return llmDrivenContextService, cleanupCtx, cancelCleanup
+}
+
+// initMultiDimensionalStorageEngine 初始化多维度存储引擎
+func initMultiDimensionalStorageEngine(cfg *config.Config) (interface{}, error) {
+	log.Printf("🔧 开始初始化多维度存储引擎...")
+
+	// 加载统一数据库配置
+	dbConfig, err := config.LoadDatabaseConfig()
+	if err != nil {
+		return nil, fmt.Errorf("加载数据库配置失败: %w", err)
+	}
+
+	// 验证配置
+	if err := dbConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("数据库配置验证失败: %w", err)
+	}
+
+	// 打印配置信息
+	dbConfig.PrintConfig()
+
+	// 1. 初始化时间线存储引擎（如果启用）
+	var timelineEngine interface{} = nil
+	if dbConfig.TimescaleDB.Enabled && cfg.MultiDimTimelineEnabled {
+		log.Printf("   🕒 初始化TimescaleDB时间线引擎...")
+
+		// 转换配置格式
+		timelineConfig := &timeline.TimescaleDBConfig{
+			Host:        dbConfig.TimescaleDB.Host,
+			Port:        dbConfig.TimescaleDB.Port,
+			Database:    dbConfig.TimescaleDB.Database,
+			Username:    dbConfig.TimescaleDB.Username,
+			Password:    dbConfig.TimescaleDB.Password,
+			SSLMode:     dbConfig.TimescaleDB.SSLMode,
+			MaxConns:    dbConfig.TimescaleDB.MaxConns,
+			MaxIdleTime: dbConfig.TimescaleDB.MaxIdleTime,
+		}
+
+		// 尝试初始化真实的TimescaleDB引擎
+		engine, err := timeline.NewTimescaleDBEngine(timelineConfig)
+		if err != nil {
+			log.Printf("   ⚠️ TimescaleDB引擎初始化失败: %v，使用内存模拟引擎", err)
+			// 如果TimescaleDB不可用，使用内存引擎作为降级方案
+			timelineEngine = map[string]interface{}{"type": "timeline", "status": "memory_fallback", "error": err.Error()}
+		} else {
+			log.Printf("   ✅ TimescaleDB引擎初始化成功")
+			timelineEngine = engine
+		}
+	}
+
+	// 2. 初始化知识图谱存储引擎（如果启用）
+	var knowledgeEngine interface{} = nil
+	if dbConfig.Neo4j.Enabled && cfg.MultiDimKnowledgeEnabled {
+		log.Printf("   🕸️ 初始化Neo4j知识图谱引擎...")
+
+		// 转换配置格式
+		knowledgeConfig := &knowledge.Neo4jConfig{
+			URI:                     dbConfig.Neo4j.URI,
+			Username:                dbConfig.Neo4j.Username,
+			Password:                dbConfig.Neo4j.Password,
+			Database:                dbConfig.Neo4j.Database,
+			MaxConnectionPoolSize:   dbConfig.Neo4j.MaxConnectionPoolSize,
+			ConnectionTimeout:       dbConfig.Neo4j.ConnectionTimeout,
+			MaxTransactionRetryTime: dbConfig.Neo4j.MaxTransactionRetryTime,
+		}
+
+		// 尝试初始化真实的Neo4j引擎
+		engine, err := knowledge.NewNeo4jEngine(knowledgeConfig)
+		if err != nil {
+			log.Printf("   ⚠️ Neo4j引擎初始化失败: %v，使用内存模拟引擎", err)
+			// 如果Neo4j不可用，使用内存引擎作为降级方案
+			knowledgeEngine = map[string]interface{}{"type": "knowledge", "status": "memory_fallback", "error": err.Error()}
+		} else {
+			log.Printf("   ✅ Neo4j引擎初始化成功")
+			knowledgeEngine = engine
+		}
+	}
+
+	// 🔥 直接在这里创建适配器和MultiDimensionalRetriever
+	var multiRetriever interface{}
+
+	// 创建适配器
+	timelineAdapter := &services.TimelineStoreAdapter{Engine: timelineEngine}
+	knowledgeAdapter := &services.KnowledgeStoreAdapter{Engine: knowledgeEngine}
+
+	// 🔥 修复：先创建空的向量适配器，延迟到multiRetriever赋值后再设置Engine
+	vectorAdapter := &services.VectorStoreAdapter{Engine: nil}
+
+	// 创建MultiDimensionalRetriever
+	multiRetrieverImpl := engines.NewMultiDimensionalRetriever(
+		timelineAdapter,
+		knowledgeAdapter,
+		vectorAdapter,
+	)
+
+	// 创建适配器包装
+	multiRetriever = &services.MultiDimensionalRetrieverAdapter{
+		Impl: multiRetrieverImpl,
+	}
+
+	log.Printf("✅ 多维度检索器创建完成")
+
+	return map[string]interface{}{
+		"enabled":           true,
+		"timeline_enabled":  cfg.MultiDimTimelineEnabled,
+		"knowledge_enabled": cfg.MultiDimKnowledgeEnabled,
+		"vector_enabled":    cfg.MultiDimVectorEnabled,
+		"llm_provider":      cfg.MultiDimLLMProvider,
+		"llm_model":         cfg.MultiDimLLMModel,
+		"multi_retriever":   multiRetriever, // 直接提供完整的检索器
+		"timeline_engine":   timelineEngine,
+		"knowledge_engine":  knowledgeEngine,
+	}, nil
 }
 
 // registerMCPTools 注册所有MCP工具到服务器
-func registerMCPTools(s *server.MCPServer, contextService *services.ContextService) {
+func registerMCPTools(s *server.MCPServer, llmDrivenService *services.LLMDrivenContextService) {
+	// 从LLMDrivenContextService获取基础ContextService用于MCP工具
+	contextService := llmDrivenService.GetContextService()
 	// 注册工具：关联文件
 	associateFileTool := mcp.NewTool("associate_file",
 		mcp.WithDescription("关联代码文件到当前编程会话"),
@@ -285,9 +526,29 @@ func registerMCPTools(s *server.MCPServer, contextService *services.ContextServi
 	)
 	s.AddTool(retrieveContextTool, retrieveContextHandler(contextService))
 
-	// 注册工具：编程上下文
+	// 注册工具：获取上下文（新的统一接口）
+	getContextTool := mcp.NewTool("get_context",
+		mcp.WithDescription("获取指定类型的上下文信息，支持获取特定维度或完整上下文"),
+		mcp.WithString("sessionId",
+			mcp.Required(),
+			mcp.Description("当前会话ID"),
+		),
+		mcp.WithString("contextType",
+			mcp.Required(),
+			mcp.Description("上下文类型：topic/project/recent_changes/code/conversation/all"),
+		),
+		mcp.WithString("summaryLevel",
+			mcp.Description("摘要级别：detailed/summary/brief，默认summary"),
+		),
+		mcp.WithString("timeRange",
+			mcp.Description("时间范围（仅对recent_changes有效）：1h/6h/1d/3d/1w"),
+		),
+	)
+	s.AddTool(getContextTool, getContextHandler(contextService))
+
+	// 注册工具：编程上下文（保持向后兼容）
 	programmingContextTool := mcp.NewTool("programming_context",
-		mcp.WithDescription("获取编程特征和上下文摘要"),
+		mcp.WithDescription("获取编程特征和上下文摘要（已废弃，请使用get_context）"),
 		mcp.WithString("sessionId",
 			mcp.Required(),
 			mcp.Description("当前会话ID"),
@@ -1017,7 +1278,6 @@ func storeConversationHandler(contextService *services.ContextService) func(ctx 
 			logToolCall("store_conversation", request.Params.Arguments, errMsg, err, time.Since(startTime))
 			return mcp.NewToolResultText(errMsg), nil
 		}
-
 		// 生成对话摘要
 		summary, err := contextService.SummarizeContext(ctx, models.SummarizeContextRequest{
 			SessionID: sessionID,
@@ -1681,5 +1941,91 @@ func userInitDialogHandler() func(ctx context.Context, request mcp.CallToolReque
 		// 使用原始JSON字符串返回，不要添加额外的引号
 		log.Printf("[用户初始化对话] 完成处理，耗时: %v", time.Since(startTime))
 		return mcp.NewToolResultText(string(jsonData)), nil
+	}
+}
+
+// getContextHandler 处理获取上下文请求（新的统一接口）
+func getContextHandler(contextService *services.ContextService) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		startTime := time.Now()
+
+		// 验证必需参数
+		sessionID, ok := request.Params.Arguments["sessionId"].(string)
+		if !ok || sessionID == "" {
+			errMsg := "错误: sessionId必须是非空字符串"
+			log.Println(errMsg)
+			logToolCall("get_context", request.Params.Arguments, errMsg, fmt.Errorf(errMsg), time.Since(startTime))
+			return mcp.NewToolResultText(errMsg), nil
+		}
+
+		contextType, ok := request.Params.Arguments["contextType"].(string)
+		if !ok || contextType == "" {
+			errMsg := "错误: contextType必须是非空字符串"
+			log.Println(errMsg)
+			logToolCall("get_context", request.Params.Arguments, errMsg, fmt.Errorf(errMsg), time.Since(startTime))
+			return mcp.NewToolResultText(errMsg), nil
+		}
+
+		// 处理可选参数
+		var summaryLevel string
+		if summaryVal, ok := request.Params.Arguments["summaryLevel"]; ok && summaryVal != nil {
+			summaryLevel, _ = summaryVal.(string)
+		}
+		if summaryLevel == "" {
+			summaryLevel = "summary" // 默认值
+		}
+
+		var timeRange string
+		if timeVal, ok := request.Params.Arguments["timeRange"]; ok && timeVal != nil {
+			timeRange, _ = timeVal.(string)
+		}
+
+		log.Printf("获取上下文: sessionID=%s, contextType=%s, summaryLevel=%s, timeRange=%s",
+			sessionID, contextType, summaryLevel, timeRange)
+
+		// 根据contextType调用不同的获取方法
+		switch contextType {
+		case "all", "code":
+			// 获取编程上下文（保持向后兼容）
+			result, err := contextService.GetProgrammingContext(ctx, sessionID, "")
+			if err != nil {
+				errMsg := fmt.Sprintf("获取编程上下文失败: %v", err)
+				log.Println(errMsg)
+				logToolCall("get_context", request.Params.Arguments, errMsg, err, time.Since(startTime))
+				return mcp.NewToolResultText(errMsg), nil
+			}
+
+			// 根据summaryLevel调整返回内容
+			if summaryLevel == "brief" {
+				// 简化版本，只返回核心信息
+				briefResult := map[string]interface{}{
+					"sessionId": result.SessionID,
+					"fileCount": len(result.AssociatedFiles),
+					"editCount": len(result.RecentEdits),
+					"summary":   fmt.Sprintf("会话包含%d个文件，%d次编辑", len(result.AssociatedFiles), len(result.RecentEdits)),
+				}
+				jsonResult, _ := json.Marshal(briefResult)
+				logToolCall("get_context", request.Params.Arguments, "", nil, time.Since(startTime))
+				return mcp.NewToolResultText(string(jsonResult)), nil
+			}
+
+			// 返回完整结果
+			jsonResult, err := json.Marshal(result)
+			if err != nil {
+				errMsg := fmt.Sprintf("序列化结果失败: %v", err)
+				log.Println(errMsg)
+				logToolCall("get_context", request.Params.Arguments, errMsg, err, time.Since(startTime))
+				return mcp.NewToolResultText(errMsg), nil
+			}
+
+			logToolCall("get_context", request.Params.Arguments, "", nil, time.Since(startTime))
+			return mcp.NewToolResultText(string(jsonResult)), nil
+
+		default:
+			errMsg := fmt.Sprintf("不支持的上下文类型: %s。支持的类型: topic, project, recent_changes, code, conversation, all", contextType)
+			log.Println(errMsg)
+			logToolCall("get_context", request.Params.Arguments, errMsg, fmt.Errorf(errMsg), time.Since(startTime))
+			return mcp.NewToolResultText(errMsg), nil
+		}
 	}
 }

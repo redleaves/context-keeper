@@ -62,6 +62,14 @@ type Config struct {
 	MinMessageCount           int // 最小消息数阈值，少于此数量不汇总，默认20
 	MinTimeSinceLastSummary   int // 距离上次汇总的最小小时数，默认24小时
 	MaxMessageCount           int // 触发汇总的消息数阈值，默认100
+
+	// 多维度存储配置
+	EnableMultiDimensionalStorage bool   `json:"enable_multi_dimensional_storage"` // 多维度存储总开关
+	MultiDimTimelineEnabled       bool   `json:"multi_dim_timeline_enabled"`       // 时间线存储开关
+	MultiDimKnowledgeEnabled      bool   `json:"multi_dim_knowledge_enabled"`      // 知识图谱存储开关
+	MultiDimVectorEnabled         bool   `json:"multi_dim_vector_enabled"`         // 增强向量存储开关
+	MultiDimLLMProvider           string `json:"multi_dim_llm_provider"`           // LLM提供商
+	MultiDimLLMModel              string `json:"multi_dim_llm_model"`              // LLM模型
 }
 
 // Load 从环境变量加载配置
@@ -137,6 +145,14 @@ func Load() *Config {
 		MinMessageCount:           getEnvAsInt("MIN_MESSAGE_COUNT", 20),
 		MinTimeSinceLastSummary:   getEnvAsInt("MIN_TIME_SINCE_LAST_SUMMARY", 24),
 		MaxMessageCount:           getEnvAsInt("MAX_MESSAGE_COUNT", 100),
+
+		// 多维度存储配置
+		EnableMultiDimensionalStorage: getEnvAsBool("ENABLE_MULTI_DIMENSIONAL_STORAGE", false), // 默认关闭
+		MultiDimTimelineEnabled:       getEnvAsBool("MULTI_DIM_TIMELINE_ENABLED", false),
+		MultiDimKnowledgeEnabled:      getEnvAsBool("MULTI_DIM_KNOWLEDGE_ENABLED", false),
+		MultiDimVectorEnabled:         getEnvAsBool("MULTI_DIM_VECTOR_ENABLED", true), // 向量存储默认启用
+		MultiDimLLMProvider:           getEnv("MULTI_DIM_LLM_PROVIDER", "deepseek"),
+		MultiDimLLMModel:              getEnv("MULTI_DIM_LLM_MODEL", "deepseek-chat"),
 	}
 
 	// 确保存储路径存在

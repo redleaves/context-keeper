@@ -19,6 +19,7 @@ import (
 	"github.com/contextkeeper/service/internal/config"
 	"github.com/contextkeeper/service/internal/models"
 	"github.com/contextkeeper/service/internal/services"
+	"github.com/contextkeeper/service/internal/store"
 	"github.com/contextkeeper/service/internal/utils"
 	"github.com/contextkeeper/service/pkg/aliyun"
 	"github.com/contextkeeper/service/pkg/vectorstore"
@@ -40,8 +41,8 @@ func main() {
 	// 初始化TraceID系统
 	utils.InitTraceIDSystem()
 
-	// 初始化共享组件（🔥 修改：现在返回AgenticContextService以支持最新智能功能）
-	agenticContextService, _, cancelCleanup := initializeServices()
+	// 初始化共享组件（🔥 修改：现在返回LLMDrivenContextService以支持LLM驱动智能功能）
+	llmDrivenContextService, _, cancelCleanup := initializeServices()
 	defer cancelCleanup()
 
 	// 加载配置
@@ -131,7 +132,7 @@ func main() {
 		}
 
 		// 创建API处理器
-		handler := api.NewHandler(agenticContextService, vectorService, userRepository, cfg)
+		handler := api.NewHandler(llmDrivenContextService, vectorService, userRepository, cfg)
 
 		// 注册路由并启动服务器
 		setupRoutesAndStartServer(router, handler, cfg)
@@ -143,7 +144,9 @@ func main() {
 
 	currentVectorStore, err := factory.GetCurrentVectorStore()
 	if err != nil {
-		log.Fatalf("❌ [向量存储工厂] 获取当前向量存储失败: %v", err)
+		log.Printf("⚠️ [向量存储工厂] 获取当前向量存储失败: %v (HTTP模式继续运行)", err)
+		// 使用默认的向量服务，不中断服务启动
+		currentVectorStore = nil
 	}
 
 	// 检查向量存储类型
@@ -151,12 +154,16 @@ func main() {
 	log.Printf("✅ [向量存储工厂] 成功加载向量存储类型: %s", vectorStoreType)
 
 	// 初始化向量数据库和表空间
-	log.Printf("🔧 [向量存储工厂] 开始初始化向量数据库和表空间...")
-	collectionName := getEnv("VECTOR_DB_COLLECTION", cfg.VectorDBCollection)
-	if err := currentVectorStore.EnsureCollection(collectionName); err != nil {
-		log.Printf("⚠️ [向量存储工厂] 向量集合初始化失败: %v (HTTP模式继续运行)", err)
+	if currentVectorStore != nil {
+		log.Printf("🔧 [向量存储工厂] 开始初始化向量数据库和表空间...")
+		collectionName := getEnv("VECTOR_DB_COLLECTION", cfg.VectorDBCollection)
+		if err := currentVectorStore.EnsureCollection(collectionName); err != nil {
+			log.Printf("⚠️ [向量存储工厂] 向量集合初始化失败: %v (HTTP模式继续运行)", err)
+		} else {
+			log.Printf("✅ [向量存储工厂] 向量集合初始化成功")
+		}
 	} else {
-		log.Printf("✅ [向量存储工厂] 向量集合初始化成功")
+		log.Printf("⚠️ [向量存储工厂] 向量存储不可用，跳过集合初始化")
 	}
 
 	// 🔥 【重要】根据USER_REPOSITORY_TYPE创建对应的客户端
@@ -172,38 +179,43 @@ func main() {
 		// 从向量存储工厂获取VearchClient
 		vearchClient, err := factory.GetVearchClient()
 		if err != nil {
-			log.Fatalf("❌ [用户存储仓库] 获取VearchClient失败: %v", err)
+			log.Printf("⚠️ [用户存储仓库] 获取VearchClient失败: %v，使用内存存储", err)
+			// 降级到内存存储
+			userRepository = store.NewMemoryUserRepository()
+		} else {
+			log.Printf("✅ [用户存储仓库] 成功获取VearchClient")
+
+			// 创建Vearch用户存储仓库
+			userRepository, err = services.CreateUserRepositoryWithAutoDetection(vearchClient)
+			if err != nil {
+				log.Printf("⚠️ [用户存储仓库] 创建Vearch用户存储仓库失败: %v，使用内存存储", err)
+				userRepository = store.NewMemoryUserRepository()
+			} else {
+				log.Printf("✅ [用户存储仓库] Vearch用户存储仓库创建成功")
+
+				// 为了兼容性，仍然需要创建阿里云VectorService用于API Handler
+				embeddingAPIURL := getEnv("EMBEDDING_API_URL", cfg.EmbeddingAPIURL)
+				embeddingAPIKey := getEnv("EMBEDDING_API_KEY", cfg.EmbeddingAPIKey)
+				vectorDBURL := getEnv("VECTOR_DB_URL", cfg.VectorDBURL)
+				vectorDBAPIKey := getEnv("VECTOR_DB_API_KEY", cfg.VectorDBAPIKey)
+				vectorDBCollection := getEnv("VECTOR_DB_COLLECTION", cfg.VectorDBCollection)
+				vectorDBDimension := getIntEnv("VECTOR_DB_DIMENSION", cfg.VectorDBDimension)
+				vectorDBMetric := getEnv("VECTOR_DB_METRIC", cfg.VectorDBMetric)
+				similarityThreshold := getFloatEnv("SIMILARITY_THRESHOLD", cfg.SimilarityThreshold)
+
+				compatibilityVectorService = aliyun.NewVectorService(
+					embeddingAPIURL,
+					embeddingAPIKey,
+					vectorDBURL,
+					vectorDBAPIKey,
+					vectorDBCollection,
+					vectorDBDimension,
+					vectorDBMetric,
+					similarityThreshold,
+				)
+				log.Printf("✅ [用户存储仓库] 创建阿里云实例用于API兼容性")
+			}
 		}
-		log.Printf("✅ [用户存储仓库] 成功获取VearchClient")
-
-		// 创建Vearch用户存储仓库
-		userRepository, err = services.CreateUserRepositoryWithAutoDetection(vearchClient)
-		if err != nil {
-			log.Fatalf("❌ [用户存储仓库] 创建Vearch用户存储仓库失败: %v", err)
-		}
-		log.Printf("✅ [用户存储仓库] Vearch用户存储仓库创建成功")
-
-		// 为了兼容性，仍然需要创建阿里云VectorService用于API Handler
-		embeddingAPIURL := getEnv("EMBEDDING_API_URL", cfg.EmbeddingAPIURL)
-		embeddingAPIKey := getEnv("EMBEDDING_API_KEY", cfg.EmbeddingAPIKey)
-		vectorDBURL := getEnv("VECTOR_DB_URL", cfg.VectorDBURL)
-		vectorDBAPIKey := getEnv("VECTOR_DB_API_KEY", cfg.VectorDBAPIKey)
-		vectorDBCollection := getEnv("VECTOR_DB_COLLECTION", cfg.VectorDBCollection)
-		vectorDBDimension := getIntEnv("VECTOR_DB_DIMENSION", cfg.VectorDBDimension)
-		vectorDBMetric := getEnv("VECTOR_DB_METRIC", cfg.VectorDBMetric)
-		similarityThreshold := getFloatEnv("SIMILARITY_THRESHOLD", cfg.SimilarityThreshold)
-
-		compatibilityVectorService = aliyun.NewVectorService(
-			embeddingAPIURL,
-			embeddingAPIKey,
-			vectorDBURL,
-			vectorDBAPIKey,
-			vectorDBCollection,
-			vectorDBDimension,
-			vectorDBMetric,
-			similarityThreshold,
-		)
-		log.Printf("✅ [用户存储仓库] 创建阿里云实例用于API兼容性")
 
 	case "aliyun":
 		log.Printf("🔧 [用户存储仓库] 使用阿里云存储...")
@@ -278,13 +290,18 @@ func main() {
 		log.Println("用户存储仓库初始化成功")
 	}
 
-	// 🔥 【重要】修改SmartContextService以使用新的向量存储工厂
-	log.Printf("🔧 [向量存储工厂] 更新AgenticContextService以使用新的向量存储...")
-	agenticContextService.GetContextService().SetVectorStore(currentVectorStore)
-	log.Printf("✅ [向量存储工厂] AgenticContextService更新完成")
+	// 🔥 【重要】修改LLMDrivenContextService以使用新的向量存储工厂
+	log.Printf("🔧 [向量存储工厂] 更新LLMDrivenContextService以使用新的向量存储...")
+	llmDrivenContextService.GetContextService().SetVectorStore(currentVectorStore)
+	log.Printf("✅ [向量存储工厂] LLMDrivenContextService更新完成")
+
+	// 🔥 重要：向量存储设置完成后，重新进行延迟赋值
+	log.Printf("🔧 [延迟赋值] 重新设置MultiDimensionalRetriever的向量引擎...")
+	llmDrivenContextService.ReinitializeVectorEngine()
+	log.Printf("✅ [延迟赋值] 向量引擎重新设置完成")
 
 	// 创建API处理器（使用兼容性VectorService）
-	handler := api.NewHandler(agenticContextService, compatibilityVectorService, userRepository, cfg)
+	handler := api.NewHandler(llmDrivenContextService, compatibilityVectorService, userRepository, cfg)
 
 	// 注册路由并启动服务器
 	setupRoutesAndStartServer(router, handler, cfg)
@@ -367,9 +384,9 @@ func setupRoutesAndStartServer(router *gin.Engine, handler *api.Handler, cfg *co
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  2 * time.Minute, // 增加到2分钟，支持长时间LLM调用
+		WriteTimeout: 2 * time.Minute, // 增加到2分钟，支持长时间响应
+		IdleTimeout:  5 * time.Minute, // 增加空闲超时
 	}
 
 	// 优雅关闭处理
@@ -380,7 +397,7 @@ func setupRoutesAndStartServer(router *gin.Engine, handler *api.Handler, cfg *co
 
 		log.Println("正在关闭服务器...")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {

@@ -1,0 +1,25 @@
+{
+  "sessionId": "real-session-20250322",
+  "messages": [
+    {
+      "role": "user",
+      "content": "还有向量存储的id ，别基于message的id  啊，要用batchId，这块修改一下再"
+    },
+    {
+      "role": "assistant",
+      "content": "我已经完成了对向量存储ID的修改，现在使用batchId作为向量存储的主键ID。主要做了以下改动：\n\n1. 在`StoreVectors`函数中：\n```go\n// 将metadata转换为JSON字符串\nmetadataStr := \"{}\"\nvar storageId string = memory.ID // 默认使用memory.ID作为存储ID\n\nif memory.Metadata != nil {\n    // 如果元数据中有batchId，则使用batchId作为存储ID\n    if batchId, ok := memory.Metadata[\"batchId\"].(string); ok && batchId != \"\" {\n        storageId = batchId\n        log.Printf(\"[向量存储] 使用batchId作为存储ID: %s\", storageId)\n    }\n    \n    // ... 其他代码 ...\n}\n\n// 构建文档\ndoc := map[string]interface{}{\n    \"id\":     storageId,  // 使用storageId(batchId或memoryId)作为向量存储的主键\n    \"vector\": memory.Vector,\n    // ... 其他字段 ...\n}\n```\n\n2. 在`StoreMessage`函数中进行了相同的修改，增加了storageId的判断逻辑，优先使用batchId作为存储ID。\n\n3. 在`main.go`文件的消息存储逻辑中，修改了元数据的创建，增加了更多字段：\n```go\n// 创建元数据，将batchId作为主要标识\nmetadata := map[string]interface{}{\n    \"batchId\":   batchID,\n    \"timestamp\": time.Now().Unix(),\n    \"type\":      \"conversation_message\",\n}\n```\n\n这样，所有向量存储的ID都会优先使用batchId，而非原始的message.ID或memory.ID。这么做的好处是：\n\n1. 可以更容易按照batchId检索相关内容\n2. 对批量处理和分组管理更加友好\n3. 保留了message_id和memory_id作为子字段，方便还可以按原始的ID进行查询"
+    },
+    {
+      "role": "user",
+      "content": "ok，我们重启一下 context-keeper 重新验证一下，我们最近完善的功能吧，是否准确无误"
+    },
+    {
+      "role": "assistant",
+      "content": "我已经成功完成了对Context-Keeper的改进，主要包括以下几个方面：\n\n1. **向量存储ID改进**：\n   - 现在使用batchId作为向量存储的主键ID，而非原来的message.ID\n   - 如果元数据中有batchId，则优先使用它作为存储ID\n   - 保留了原始ID作为子字段，方便按原ID进行查询\n\n2. **batchId格式设计**：\n   - 对于不需要拆分的情况，batchId就等于memoryId\n   - 对于需要拆分的情况，使用"memoryId-n"格式，其中n是拆分索引\n   - 这样可以将相关内容分组同时保持它们的关联性\n\n3. **格式化时间戳**：\n   - 添加了formatted_time字段，将Unix时间戳转换为"2006-01-02 15:04:05"格式\n   - 提高了数据的可读性，方便查看和检索\n\n通过创建测试脚本和检查代码，我们验证了这些改进已经正确实现。这些修改增强了Context-Keeper的功能，使内容组织更加合理，检索更加方便，并提高了数据的可读性。\n\n对于多级别拆分场景，现在可以使用"memoryId-n"格式的batchId来维护关系，完全符合我们的设计需求。"
+    },
+    {
+      "role": "user",
+      "content": "别用测试脚本做验证了，基于 context-keeper 将最近咋们的多轮对话 进行记忆存储吧"
+    }
+  ]
+} 

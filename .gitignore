@@ -36,7 +36,14 @@ debug
 *.swp
 *.swo
 
-# 数据文件
+# 开发工具和编辑器配置目录
+.augment/
+.cursor/
+# 但是不忽略.cursor/rules目录（重要的Cursor规则文件需要提交）
+!.cursor/rules/
+.joycode/
+
+# 数据文件 - 完全排除整个data目录
 data/
 
 # 详细日志
@@ -46,4 +53,3 @@ test_fastembed/model_cache/
 test_fastembed/local_cache/
 *.onnx
 model_optimized.onnx
-

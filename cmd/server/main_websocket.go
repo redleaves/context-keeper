@@ -160,9 +160,9 @@ func main() {
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  2 * time.Minute, // 增加到2分钟，支持长时间LLM调用
+		WriteTimeout: 2 * time.Minute, // 增加到2分钟，支持长时间响应
+		IdleTimeout:  5 * time.Minute, // 增加空闲超时
 	}
 
 	// 优雅关闭处理
@@ -182,7 +182,7 @@ func main() {
 			}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
 		if err := srv.Shutdown(ctx); err != nil {

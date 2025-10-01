@@ -1,0 +1,235 @@
+{
+  "name": "context-keeper",
+  "displayName": "Context Keeper - AI Memory Management",
+  "description": "Intelligent programming context and memory management for developers",
+  "version": "1.0.0",
+  "publisher": "context-keeper",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning",
+    "Snippets"
+  ],
+  "keywords": [
+    "AI",
+    "memory",
+    "context",
+    "programming",
+    "assistant"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextKeeper.storeMemory",
+        "title": "Store Important Memory",
+        "category": "Context Keeper"
+      },
+      {
+        "command": "contextKeeper.queryContext",
+        "title": "Query Programming Context",
+        "category": "Context Keeper"
+      },
+      {
+        "command": "contextKeeper.showDashboard",
+        "title": "Show Context Dashboard",
+        "category": "Context Keeper"
+      },
+      {
+        "command": "contextKeeper.configureSettings",
+        "title": "Configure Settings",
+        "category": "Context Keeper"
+      },
+      {
+        "command": "contextKeeper.testConnection",
+        "title": "Test Connection",
+        "category": "Context Keeper"
+      },
+      {
+        "command": "contextKeeper.resetUserData",
+        "title": "Reset User Data",
+        "category": "Context Keeper"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "contextKeeper.storeMemory",
+          "when": "editorHasSelection",
+          "group": "contextKeeper"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "contextKeeper.associateFile",
+          "when": "explorerResourceIsFile",
+          "group": "contextKeeper"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "contextKeeper.storeMemory",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "contextKeeper.queryContext",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q"
+      }
+    ],
+    "configuration": {
+      "title": "Context Keeper",
+      "properties": {
+        "contextKeeper.serverURL": {
+          "type": "string",
+          "default": "http://localhost:8088",
+          "description": "Context-keeper: Server URL",
+          "markdownDescription": "Context-Keeper服务器URL"
+        },
+        "contextKeeper.websocketURL": {
+          "type": "string",
+          "default": "",
+          "description": "Context-keeper: WebSocket URL", 
+          "markdownDescription": "WebSocket服务器URL，用于实时功能。留空则自动从服务器URL生成。示例: `ws://localhost:8088/ws`"
+        },
+        "contextKeeper.serverConnection.timeout": {
+          "type": "number",
+          "default": 15000,
+          "description": "Connection timeout in milliseconds",
+          "minimum": 1000,
+          "maximum": 60000
+        },
+        "contextKeeper.userSettings.userId": {
+          "type": "string",
+          "default": "",
+          "description": "Your Context Keeper user ID",
+          "markdownDescription": "Your unique user ID for Context Keeper. Leave empty to auto-generate."
+        },
+        "contextKeeper.userSettings.accessCode": {
+          "type": "string",
+          "default": "",
+          "description": "Your access code for data synchronization",
+          "markdownDescription": "Used for syncing data across devices. Keep this secure!"
+        },
+        "contextKeeper.autoCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "Context-keeper: Auto Capture",
+          "markdownDescription": "自动捕获编程活动"
+        },
+        "contextKeeper.autoAssociate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Context-keeper: Auto Associate", 
+          "markdownDescription": "自动关联相关文件"
+        },
+        "contextKeeper.autoRecord": {
+          "type": "boolean",
+          "default": true,
+          "description": "Context-keeper: Auto Record",
+          "markdownDescription": "自动记录代码编辑"
+        },
+        "contextKeeper.captureInterval": {
+          "type": "number",
+          "default": 30,
+          "description": "Context-keeper: Capture Interval",
+          "markdownDescription": "捕获间隔(秒)",
+          "minimum": 10,
+          "maximum": 300
+        },
+        "contextKeeper.logging.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable logging for debugging purposes"
+        },
+        "contextKeeper.logging.level": {
+          "type": "string",
+          "default": "info",
+          "enum": ["debug", "info", "warn", "error"],
+          "enumDescriptions": [
+            "Show all debug information",
+            "Show general information",
+            "Show warnings and errors only",
+            "Show errors only"
+          ],
+          "description": "Logging level for the extension"
+        },
+        "contextKeeper.websocketAutoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Context-keeper: WebSocket Auto Connect",
+          "markdownDescription": "自动连接WebSocket进行实时功能"
+        },
+        "contextKeeper.websocketReconnectAttempts": {
+          "type": "number",
+          "default": 5,
+          "description": "Context-keeper: WebSocket Reconnect Attempts",
+          "markdownDescription": "WebSocket重连尝试次数",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "contextKeeper.ui.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Context Keeper status in status bar"
+        },
+        "contextKeeper.ui.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications for important events"
+        },
+        "contextKeeper.memory.maxShortTermEntries": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of short-term memory entries",
+          "minimum": 10,
+          "maximum": 1000
+        },
+        "contextKeeper.memory.autoCleanup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically cleanup old memory entries"
+        }
+      }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "contextKeeperMemories",
+          "name": "Context Memories",
+          "when": "contextKeeper.enabled"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "contextKeeper",
+          "title": "Context Keeper",
+          "icon": "$(brain)"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "axios": "^1.4.0"
+  }
+} 

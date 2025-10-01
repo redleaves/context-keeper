@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,10 +11,10 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/contextkeeper/service/internal/agentic_beta"
 	"github.com/contextkeeper/service/internal/config"
 	"github.com/contextkeeper/service/internal/models"
 	"github.com/contextkeeper/service/internal/services"
@@ -26,6 +27,34 @@ import (
 var (
 	startTime = time.Now() // 记录服务启动时间
 )
+
+// projectAnalysisJSON 定义与prompt JSON格式对应的结构
+type projectAnalysisJSON struct {
+	ProjectName        string   `json:"project_name"`
+	Description        string   `json:"description"`
+	ProjectType        string   `json:"project_type"`
+	PrimaryLanguage    string   `json:"primary_language"`
+	TechStack          string   `json:"tech_stack"`
+	Architecture       string   `json:"architecture"`
+	MainFramework      string   `json:"main_framework"`
+	Database           string   `json:"database"`
+	KeyDependencies    []string `json:"key_dependencies"`
+	RecentFocus        string   `json:"recent_focus"`
+	CurrentPainPoints  []string `json:"current_pain_points"`
+	ActiveRequirements []string `json:"active_requirements"`
+	MainComponents     []struct {
+		Name       string `json:"name"`
+		Purpose    string `json:"purpose"`
+		Importance string `json:"importance"`
+	} `json:"main_components"`
+	ImportantFiles []struct {
+		FilePath    string `json:"file_path"`
+		Role        string `json:"role"`
+		Criticality string `json:"criticality"`
+	} `json:"important_files"`
+	CurrentPhase    string  `json:"current_phase"`
+	ConfidenceLevel float64 `json:"confidence_level"`
+}
 
 // 活跃的SSE连接请求通道
 var (
@@ -97,12 +126,14 @@ func BroadcastRequest(request map[string]interface{}) {
 
 // Handler API处理器
 type Handler struct {
-	contextService          *agentic_beta.AgenticContextService // 🔥 修改为AgenticContextService以支持最新智能功能
+	contextService          *services.LLMDrivenContextService // 🔥 修改为LLMDrivenContextService以支持LLM驱动智能功能
 	vectorService           *aliyun.VectorService
 	userRepository          models.UserRepository             // 新增：用户存储接口
 	localInstructionService *services.LocalInstructionService // 新增：本地指令服务
 	config                  *config.Config                    // 新增：配置
 	batchEmbeddingHandler   *BatchEmbeddingHandler            // 🔥 新增：批量embedding处理器
+	unifiedContextManager   *services.UnifiedContextManager   // 🔥 新增：统一上下文管理器
+	wideRecallService       *services.WideRecallService       // 🔥 新增：宽召回服务
 	startTime               time.Time
 }
 
@@ -111,14 +142,15 @@ func (h *Handler) GetBatchEmbeddingHandler() *BatchEmbeddingHandler {
 	return h.batchEmbeddingHandler
 }
 
-// NewHandler 创建新的API处理器（🔥 修改：现在接受AgenticContextService）
-func NewHandler(contextService *agentic_beta.AgenticContextService, vectorService *aliyun.VectorService, userRepository models.UserRepository, cfg *config.Config) *Handler {
+// NewHandler 创建新的API处理器（🔥 修改：现在接受LLMDrivenContextService）
+func NewHandler(contextService *services.LLMDrivenContextService, vectorService *aliyun.VectorService, userRepository models.UserRepository, cfg *config.Config) *Handler {
 	h := &Handler{
 		contextService:          contextService,
 		vectorService:           vectorService,
 		userRepository:          userRepository,
 		localInstructionService: services.NewLocalInstructionService(), // 使用系统标准路径
 		config:                  cfg,
+		wideRecallService:       nil, // TODO: 初始化宽召回服务
 		startTime:               time.Now(),
 	}
 
@@ -144,11 +176,67 @@ func NewHandler(contextService *agentic_beta.AgenticContextService, vectorServic
 		log.Printf("[批量Embedding] 批量embedding配置未设置，跳过初始化")
 	}
 
+	// 🔥 新增：初始化统一上下文管理器
+	log.Printf("🧠 [统一上下文] 初始化统一上下文管理器...")
+
+	// 创建真实的LLM服务
+	provider := os.Getenv("LLM_PROVIDER")
+	if provider == "" {
+		provider = "deepseek"
+	}
+
+	model := os.Getenv("LLM_MODEL")
+	if model == "" {
+		model = "deepseek-chat"
+	}
+
+	var apiKey string
+	switch provider {
+	case "deepseek":
+		apiKey = os.Getenv("DEEPSEEK_API_KEY")
+	case "openai":
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	case "claude":
+		apiKey = os.Getenv("CLAUDE_API_KEY")
+	case "qianwen":
+		apiKey = os.Getenv("QIANWEN_API_KEY")
+	case "ollama_local":
+		// 🆕 本地模型不需要API密钥
+		apiKey = "local-model" // 设置一个占位符，避免空值检查
+	}
+
+	if apiKey == "" {
+		log.Printf("⚠️ [统一上下文] LLM API密钥未配置，提供商: %s，跳过统一上下文管理器初始化", provider)
+		// 不中断Handler创建，只是不初始化统一上下文管理器
+		h.unifiedContextManager = nil
+	} else {
+		realLLMService, err := services.NewRealLLMService(provider, model, apiKey)
+		if err != nil {
+			log.Printf("❌ [统一上下文] 创建真实LLM服务失败: %v，跳过统一上下文管理器初始化", err)
+			h.unifiedContextManager = nil
+		} else {
+			sessionManager := contextService.SessionStore()
+
+			h.unifiedContextManager = services.NewUnifiedContextManager(
+				contextService.GetContextService(), // 获取底层的ContextService
+				sessionManager,
+				realLLMService,
+			)
+			contextService.SetContextManager(h.unifiedContextManager)
+			log.Printf("✅ [统一上下文] 统一上下文管理器初始化完成，使用真实LLM: %s/%s", provider, model)
+		}
+	}
+
 	// 🔥 新增：设置WebSocket管理器的全局处理器引用
 	// 这样WebSocket心跳就能调用会话活跃度更新方法
 	services.SetGlobalHandler(h)
 
 	return h
+}
+
+// GetContextService 暴露底层 ContextService，便于中间件注入上下文
+func (h *Handler) GetContextService() *services.ContextService {
+	return h.contextService.GetContextService()
 }
 
 // RegisterRoutes 注册路由
@@ -935,8 +1023,9 @@ func (h *Handler) handleMCPRecordEdit(c *gin.Context) {
 func (h *Handler) handleMCPRetrieveContext(c *gin.Context) {
 	// 解析MCP工具调用请求
 	var req struct {
-		SessionId string `json:"sessionId" binding:"required"`
-		Query     string `json:"query" binding:"required"`
+		SessionId       string `json:"sessionId" binding:"required"`
+		Query           string `json:"query" binding:"required"`
+		ProjectAnalysis string `json:"projectAnalysis,omitempty"` // 🆕 可选的工程分析参数
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -948,8 +1037,9 @@ func (h *Handler) handleMCPRetrieveContext(c *gin.Context) {
 
 	// 转换为内部请求格式
 	internalReq := models.RetrieveContextRequest{
-		SessionID: req.SessionId,
-		Query:     req.Query,
+		SessionID:       req.SessionId,
+		Query:           req.Query,
+		ProjectAnalysis: req.ProjectAnalysis, // 🆕 传递工程分析结果
 	}
 
 	// 调用服务处理
@@ -1195,10 +1285,14 @@ func (h *Handler) handleMCPToolCall(c *gin.Context) {
 			return
 		}
 
+		// 🆕 提取可选的工程分析参数
+		projectAnalysis, _ := request.Params.Arguments["projectAnalysis"].(string)
+
 		// 转换为内部请求格式
 		internalReq := models.RetrieveContextRequest{
-			SessionID: sessionId,
-			Query:     query,
+			SessionID:       sessionId,
+			Query:           query,
+			ProjectAnalysis: projectAnalysis, // 🆕 传递工程分析结果
 		}
 
 		// 调用服务处理
@@ -1401,6 +1495,10 @@ func (h *Handler) handleMCPToolsList(c *gin.Context) {
 								"type":        "string",
 								"description": "查询内容",
 							},
+							"projectAnalysis": gin.H{
+								"type":        "string",
+								"description": "工程分析结果（可选，用于检索增强）",
+							},
 						},
 						"required": []string{"sessionId", "query"},
 					},
@@ -1568,8 +1666,8 @@ func (h *Handler) handleMCPRequest(c *gin.Context) {
 
 			log.Printf("[RPC] 工具调用: %s, 参数: %+v", toolName, toolParams)
 
-			// 将工具调用分派给具体处理函数
-			result, err := h.dispatchToolCall(toolName, toolParams)
+			// 🔥 使用支持上下文的分发器，传递请求上下文
+			result, err := h.dispatchToolCallWithContext(c.Request.Context(), toolName, toolParams)
 			if err != nil {
 				response["error"] = map[string]interface{}{
 					"code":    -32000,
@@ -1590,38 +1688,43 @@ func (h *Handler) handleMCPRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// dispatchToolCall 分派工具调用到相应的处理函数
+// dispatchToolCall 分派工具调用到相应的处理函数（原版本，向后兼容）
 func (h *Handler) dispatchToolCall(toolName string, params map[string]interface{}) (interface{}, error) {
+	return h.dispatchToolCallWithContext(context.Background(), toolName, params)
+}
+
+// dispatchToolCallWithContext 分派工具调用到相应的处理函数（支持上下文传递）
+func (h *Handler) dispatchToolCallWithContext(ctx context.Context, toolName string, params map[string]interface{}) (interface{}, error) {
 	switch toolName {
 	case "associate_file":
-		return h.handleToolAssociateFile(params)
+		return h.handleToolAssociateFile(ctx, params)
 	case "record_edit":
-		return h.handleToolRecordEdit(params)
+		return h.handleToolRecordEdit(ctx, params)
 	case "retrieve_context":
-		return h.handleToolRetrieveContext(params)
+		return h.handleToolRetrieveContext(ctx, params)
 	case "programming_context":
-		return h.handleToolProgrammingContext(params)
+		return h.handleToolProgrammingContext(ctx, params)
 	case "memorize_context":
-		return h.handleToolMemorizeContext(params)
+		return h.handleToolMemorizeContext(ctx, params)
 	case "session_management":
-		return h.handleToolSessionManagement(params)
+		return h.handleToolSessionManagement(ctx, params)
 	case "store_conversation":
-		return h.handleToolStoreConversation(params)
+		return h.handleToolStoreConversation(ctx, params)
 	case "retrieve_memory":
-		return h.handleToolRetrieveMemory(params)
+		return h.handleToolRetrieveMemory(ctx, params)
 	case "retrieve_todos":
-		return h.handleToolRetrieveTodos(params)
+		return h.handleToolRetrieveTodos(ctx, params)
 	case "user_init_dialog":
-		return h.handleToolUserInitDialog(params)
+		return h.handleToolUserInitDialog(ctx, params)
 	case "local_operation_callback":
-		return h.handleToolLocalOperationCallback(params)
+		return h.handleToolLocalOperationCallback(ctx, params)
 	default:
 		return nil, fmt.Errorf("未知的工具: %s", toolName)
 	}
 }
 
 // handleToolAssociateFile 处理关联文件请求
-func (h *Handler) handleToolAssociateFile(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolAssociateFile(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, _ := params["sessionId"].(string)
 	filePath, _ := params["filePath"].(string)
 
@@ -1685,7 +1788,7 @@ func (h *Handler) handleToolAssociateFile(params map[string]interface{}) (interf
 }
 
 // handleToolRecordEdit 处理记录编辑请求
-func (h *Handler) handleToolRecordEdit(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolRecordEdit(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, _ := params["sessionId"].(string)
 	filePath, _ := params["filePath"].(string)
 	diff, _ := params["diff"].(string)
@@ -1751,9 +1854,11 @@ func (h *Handler) handleToolRecordEdit(params map[string]interface{}) (interface
 }
 
 // handleToolRetrieveContext 处理检索上下文请求
-func (h *Handler) handleToolRetrieveContext(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolRetrieveContext(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, _ := params["sessionId"].(string)
 	query, _ := params["query"].(string)
+	// 🔥 新增：获取项目分析参数
+	projectAnalysis, _ := params["projectAnalysis"].(string)
 
 	if sessionID == "" || query == "" {
 		return nil, fmt.Errorf("缺少必需参数")
@@ -1771,15 +1876,69 @@ func (h *Handler) handleToolRetrieveContext(params map[string]interface{}) (inte
 
 	log.Printf("检索上下文: 会话=%s, 用户ID=%s, 查询=%s", sessionID, userID, query)
 
-	// 创建检索请求
-	retrieveReq := models.RetrieveContextRequest{
-		SessionID: sessionID,
-		Query:     query,
-		Limit:     2000, // 默认限制
+	// 🔥 关键优化：如果有projectAnalysis且UnifiedContextManager中没有ProjectContext，前置更新
+	if projectAnalysis != "" && h.unifiedContextManager != nil {
+		existingContext, err := h.unifiedContextManager.GetContext(sessionID)
+
+		// 如果不存在或ProjectContext为空，立即创建并更新
+		if err != nil || existingContext == nil || existingContext.Project == nil {
+			log.Printf("🔧 [前置工程感知] 检测到projectAnalysis参数，立即更新ProjectContext")
+
+			// 🔥 从 context 获取工作空间信息（统一拦截器已注入）
+			workspaceID, ok := ctx.Value("workspacePath").(string)
+			if !ok || workspaceID == "" {
+				log.Printf("❌ [前置工程感知] 从 context 获取workspacePath失败，统一拦截器可能未生效")
+				return map[string]interface{}{
+					"success": false,
+					"message": "系统错误：工作空间信息缺失，请检查请求参数",
+				}, nil
+			}
+
+			log.Printf("✅ [前置工程感知] 从 context 获取workspacePath: %s", workspaceID)
+
+			// 构建ProjectContext
+			projectContext := h.buildProjectContextFromAnalysis(projectAnalysis, workspaceID)
+
+			// 只有解析成功才存储
+			if projectContext != nil {
+				// 创建或更新UnifiedContext
+				var unifiedContext *models.UnifiedContextModel
+				if existingContext != nil {
+					unifiedContext = existingContext
+					unifiedContext.Project = projectContext
+					unifiedContext.UpdatedAt = time.Now()
+				} else {
+					unifiedContext = &models.UnifiedContextModel{
+						SessionID:   sessionID,
+						UserID:      userID,
+						WorkspaceID: workspaceID,
+						Project:     projectContext,
+						CreatedAt:   time.Now(),
+						UpdatedAt:   time.Now(),
+					}
+				}
+
+				// 立即存储到UnifiedContextManager
+				h.unifiedContextManager.UpdateMemory(sessionID, unifiedContext)
+				log.Printf("✅ [前置工程感知] ProjectContext已存储到统一上下文管理器，项目: %s", projectContext.ProjectName)
+			} else {
+				log.Printf("⚠️ [前置工程感知] ProjectContext构建失败，跳过存储，继续执行检索流程")
+			}
+		} else {
+			log.Printf("✅ [前置工程感知] ProjectContext已存在，跳过更新")
+		}
 	}
 
-	// 调用上下文服务检索
-	result, err := h.contextService.RetrieveContext(context.Background(), retrieveReq)
+	// 创建检索请求
+	retrieveReq := models.RetrieveContextRequest{
+		SessionID:       sessionID,
+		Query:           query,
+		ProjectAnalysis: projectAnalysis, // 🆕 传递工程分析结果
+		Limit:           2000,            // 默认限制
+	}
+
+	// 🔥 直接使用传入的上下文（统一拦截器已注入会话信息）
+	result, err := h.contextService.RetrieveContext(ctx, retrieveReq)
 	if err != nil {
 		return nil, fmt.Errorf("检索上下文失败: %v", err)
 	}
@@ -1797,7 +1956,7 @@ func (h *Handler) handleToolRetrieveContext(params map[string]interface{}) (inte
 }
 
 // handleToolProgrammingContext 处理获取编程上下文摘要请求
-func (h *Handler) handleToolProgrammingContext(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolProgrammingContext(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, _ := params["sessionId"].(string)
 	query, _ := params["query"].(string)
 
@@ -1828,7 +1987,7 @@ func (h *Handler) handleToolProgrammingContext(params map[string]interface{}) (i
 }
 
 // handleToolMemorizeContext 处理汇总到长期记忆的工具调用
-func (h *Handler) handleToolMemorizeContext(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolMemorizeContext(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	// 提取必需参数
 	sessionID, ok := params["sessionId"].(string)
 	if !ok || sessionID == "" {
@@ -1967,7 +2126,7 @@ func (h *Handler) handleSummarizeToLongTerm(c *gin.Context) {
 }
 
 // handleToolSessionManagement 处理会话管理请求
-func (h *Handler) handleToolSessionManagement(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolSessionManagement(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	action, _ := params["action"].(string)
 	if action == "" {
 		return nil, fmt.Errorf("缺少必需参数: action")
@@ -2045,6 +2204,67 @@ func (h *Handler) handleToolSessionManagement(params map[string]interface{}) (in
 			log.Printf("[会话管理-获取或创建] 更新会话活跃时间失败: %v", err)
 		}
 
+		// 🔥 新增：统一上下文完整性检查和工程感知分析
+		if h.unifiedContextManager != nil {
+			log.Printf("🧠 [统一上下文] 为会话 %s 检查上下文完整性", session.ID)
+
+			// 检查统一上下文是否已存在
+			unifiedContext, err := h.unifiedContextManager.GetContext(session.ID)
+			var needProjectAnalysis bool
+
+			if err != nil || unifiedContext == nil || unifiedContext.Project == nil {
+				log.Printf("🔍 [工程感知] 检测到ProjectContext缺失，需要进行工程感知分析")
+				needProjectAnalysis = true
+			} else {
+				// 检查ProjectContext的完整性
+				project := unifiedContext.Project
+				if project.ProjectName == "" || project.Description == "" {
+					log.Printf("🔍 [工程感知] 检测到ProjectContext不完整，需要补充分析")
+					needProjectAnalysis = true
+				} else {
+					log.Printf("✅ [工程感知] ProjectContext已存在且完整")
+					needProjectAnalysis = false
+				}
+			}
+
+			// 如果需要工程感知分析，生成分析prompt
+			if needProjectAnalysis {
+				analysisPrompt := h.buildProjectAnalysisPrompt(workspaceRoot, userID)
+				sessionInfo["analysisPrompt"] = analysisPrompt
+				log.Printf("📋 [需要llm进行工程感知] 已生成工程感知分析prompt，长度: %d", len(analysisPrompt))
+			}
+
+			//TODO 下面的逻辑很突兀啊！！
+			// 构建上下文更新请求
+			contextReq := &models.ContextUpdateRequest{
+				SessionID:   session.ID,
+				UserQuery:   "会话初始化", // 初始化查询
+				UserID:      userID,
+				WorkspaceID: workspaceRoot,
+				QueryType:   models.QueryTypeGeneral,
+				StartTime:   time.Now(),
+			}
+
+			// 调用统一上下文管理器
+			contextResp, err := h.unifiedContextManager.UpdateContext(contextReq)
+			if err != nil {
+				log.Printf("⚠️ [统一上下文] 上下文初始化失败: %v", err)
+				// 不影响主流程，继续执行
+			} else {
+				log.Printf("✅ [统一上下文] 上下文初始化成功: %s", contextResp.UpdateSummary)
+
+				// 将上下文信息添加到响应中
+				sessionInfo["unifiedContext"] = map[string]interface{}{
+					"initialized":     true,
+					"confidenceLevel": contextResp.ConfidenceLevel,
+					"updateSummary":   contextResp.UpdateSummary,
+					"processingTime":  contextResp.ProcessingTime,
+				}
+			}
+		} else {
+			log.Printf("⚠️ [统一上下文] 统一上下文管理器未初始化")
+		}
+
 		return sessionInfo, nil
 
 	default:
@@ -2052,8 +2272,202 @@ func (h *Handler) handleToolSessionManagement(params map[string]interface{}) (in
 	}
 }
 
+// buildProjectContextFromAnalysis 从工程分析结果构建ProjectContext
+func (h *Handler) buildProjectContextFromAnalysis(projectAnalysis, workspaceID string) *models.ProjectContext {
+	log.Printf("🔧 [工程感知] 开始构建ProjectContext，工作空间: %s", workspaceID)
+	log.Printf("📝 [工程感知] 工程分析结果长度: %d", len(projectAnalysis))
+
+	// 解析LLM返回的JSON结构化工程分析结果
+	projectContext, err := h.parseProjectAnalysisJSON(projectAnalysis, workspaceID)
+	if err != nil {
+		log.Printf("❌ [工程感知] JSON解析失败: %v，跳过ProjectContext创建", err)
+		return nil
+	}
+
+	log.Printf("✅ [工程感知] ProjectContext构建完成，项目: %s，语言: %s，置信度: %.2f",
+		projectContext.ProjectName, projectContext.PrimaryLanguage, projectContext.ConfidenceLevel)
+
+	return projectContext
+}
+
+// parseProjectAnalysisJSON 解析LLM返回的JSON结构化工程分析结果
+func (h *Handler) parseProjectAnalysisJSON(projectAnalysis, workspaceID string) (*models.ProjectContext, error) {
+	var analysisResult projectAnalysisJSON
+
+	// 尝试解析JSON
+	err := json.Unmarshal([]byte(projectAnalysis), &analysisResult)
+	if err != nil {
+		return nil, fmt.Errorf("JSON解析失败: %v", err)
+	}
+
+	// 转换为ProjectContext
+	projectContext := &models.ProjectContext{
+		ProjectName:     analysisResult.ProjectName,
+		ProjectPath:     workspaceID,
+		Description:     analysisResult.Description,
+		PrimaryLanguage: analysisResult.PrimaryLanguage,
+		TechStack:       h.convertTechStackFromString(analysisResult.TechStack, analysisResult.MainFramework),
+		Architecture:    models.ArchitectureInfo{Pattern: analysisResult.Architecture},
+		Dependencies:    h.convertDependenciesFromStringArray(analysisResult.KeyDependencies),
+		LastAnalyzed:    time.Now(),
+		ConfidenceLevel: analysisResult.ConfidenceLevel,
+	}
+
+	// 验证必要字段
+	if projectContext.ProjectName == "" {
+		return nil, fmt.Errorf("项目名称为空")
+	}
+	if projectContext.PrimaryLanguage == "" {
+		return nil, fmt.Errorf("主要语言为空")
+	}
+
+	return projectContext, nil
+}
+
+// convertTechStackFromString 从字符串转换为TechStackItem数组
+func (h *Handler) convertTechStackFromString(techStack, mainFramework string) []models.TechStackItem {
+	var items []models.TechStackItem
+
+	// 添加主框架
+	if mainFramework != "" {
+		items = append(items, models.TechStackItem{
+			Name: mainFramework,
+			Type: "framework",
+		})
+	}
+
+	// 简单解析tech_stack字符串，如 "Go + Gin + PostgreSQL + Redis"
+	if techStack != "" {
+		parts := strings.Split(techStack, "+")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" && part != mainFramework { // 避免重复
+				items = append(items, models.TechStackItem{
+					Name: part,
+					Type: "component",
+				})
+			}
+		}
+	}
+
+	return items
+}
+
+// convertDependenciesFromStringArray 从字符串数组转换为DependencyInfo数组
+func (h *Handler) convertDependenciesFromStringArray(dependencies []string) []models.DependencyInfo {
+	var deps []models.DependencyInfo
+
+	for _, dep := range dependencies {
+		if dep != "" {
+			deps = append(deps, models.DependencyInfo{
+				Name:    dep,
+				Version: "latest",
+				Type:    "dependency",
+			})
+		}
+	}
+
+	return deps
+}
+
+// extractProjectName 从工作空间ID提取项目名
+func extractProjectName(workspaceID string) string {
+	// 简单实现：从路径中提取最后一段作为项目名
+	parts := strings.Split(workspaceID, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return "unknown-project"
+}
+
+// buildProjectAnalysisPrompt 构建工程感知分析的精简高效prompt
+func (h *Handler) buildProjectAnalysisPrompt(workspaceRoot, userID string) string {
+	return fmt.Sprintf(`## 🎯 工程感知核心分析
+
+你是工程分析专家，需要快速提取项目的核心特征，为AI上下文管理提供精准的工程基础信息。
+
+### 🎯 分析目标
+提取4个核心维度的关键信息：**业务感知、技术感知、时间感知、关联感知**
+
+### 📊 核心分析维度
+
+#### 1. 业务感知（What - 做什么业务）
+- 项目核心功能和业务场景
+- 主要业务模块和功能划分
+- 目标用户和使用场景
+
+#### 2. 技术感知（How - 怎么实现）  
+- 技术栈和架构模式
+- 核心组件和API设计
+- 关键技术决策
+- 关键依赖和技术约规
+
+#### 3. 时间感知（When - 当前状态）
+- 近期开发重点和活跃功能
+- 当前痛点和技术挑战
+- Git提交反映的需求变化
+
+#### 4. 关联感知（Where - 关键入口）
+- 重要文件和配置
+- 模块间依赖关系
+- 核心API和接口
+
+### 📋 精简JSON输出（仅核心字段）
+
+{
+  "project_name": "<项目名称>",
+  "description": "<核心业务功能，1-2句话>",
+  "project_type": "<go/nodejs/python/java/rust/typescript/other>",
+  "primary_language": "<主要编程语言>",
+  "tech_stack": "<技术栈概述，如'Go + Gin + PostgreSQL + Redis'>",
+  "architecture": "<架构模式，如'分层架构'、'微服务'、'RESTful API'>",
+  "main_framework": "<主要框架>",
+  "database": "<数据库方案>",
+  "key_dependencies": ["<核心依赖1>", "<核心依赖2>", "<核心依赖3>"],
+  "recent_focus": "<近期开发重点，1句话>",
+  "current_pain_points": ["<当前痛点1>", "<当前痛点2>"],
+  "active_requirements": ["<活跃需求1>", "<活跃需求2>"],
+  "main_components": [
+    {
+      "name": "<组件名>",
+      "purpose": "<职责>",
+      "importance": "high/medium/low"
+    }
+  ],
+  "important_files": [
+    {
+      "file_path": "<关键文件路径>",
+      "role": "<作用>",
+      "criticality": "critical/important"
+    }
+  ],
+  "current_phase": "<development/testing/production/maintenance>",
+  "confidence_level": <0.7-1.0的置信度>
+}
+
+### 💡 高效分析策略
+
+**快速识别要点**：
+1. **目录结构** → 快速判断项目类型和架构
+2. **配置文件** → 识别技术栈（各语言配置文件：go.mod、package.json、pom.xml、Cargo.toml、requirements.txt、composer.json等）
+3. **README/文档** → 理解业务功能和使用场景
+4. **最近commit** → 了解当前开发重点和痛点
+5. **API文件** → 识别核心业务逻辑和模块划分
+
+**重点关注**：
+- 🎯 **业务模块**：从目录结构/API设计看业务功能
+- 🔧 **技术实现**：从配置和代码组织看技术选型
+- ⏰ **当前状态**：从Git历史看最近在解决什么问题
+- 🔗 **关键入口**：识别main文件、配置文件、核心API
+
+### 📍 工作空间信息
+路径: %s | 用户: %s
+
+请基于实际代码和结构进行分析，输出精简但关键的ProjectContext信息。`, workspaceRoot, userID)
+}
+
 // handleToolStoreConversation 处理对话存储请求
-func (h *Handler) handleToolStoreConversation(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolStoreConversation(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, ok := params["sessionId"].(string)
 	if !ok || sessionID == "" {
 		return nil, fmt.Errorf("缺少必需参数: sessionId")
@@ -2155,6 +2569,12 @@ func (h *Handler) handleToolStoreConversation(params map[string]interface{}) (in
 		"summary":    summary,
 	}
 
+	// 🔥 添加LLM驱动的智能分析结果
+	if resp.Metadata != nil {
+		result["metadata"] = resp.Metadata
+		log.Printf("✅ [存储对话] 添加LLM分析结果到响应: %+v", resp.Metadata)
+	}
+
 	// 转换消息格式用于本地存储
 	var messageList []*models.Message
 	for _, msgReq := range msgReqs {
@@ -2176,7 +2596,7 @@ func (h *Handler) handleToolStoreConversation(params map[string]interface{}) (in
 }
 
 // handleToolRetrieveMemory 处理记忆检索请求
-func (h *Handler) handleToolRetrieveMemory(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolRetrieveMemory(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, ok := params["sessionId"].(string)
 	if !ok || sessionID == "" {
 		return nil, fmt.Errorf("缺少必需参数: sessionId")
@@ -2234,7 +2654,7 @@ func (h *Handler) handleToolRetrieveMemory(params map[string]interface{}) (inter
 }
 
 // handleToolRetrieveTodos 处理待办事项检索请求
-func (h *Handler) handleToolRetrieveTodos(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolRetrieveTodos(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	sessionID, ok := params["sessionId"].(string)
 	if !ok || sessionID == "" {
 		return nil, fmt.Errorf("缺少必需参数: sessionId")
@@ -2288,7 +2708,7 @@ func (h *Handler) handleToolRetrieveTodos(params map[string]interface{}) (interf
 }
 
 // handleToolUserInitDialog 处理用户初始化对话请求（完全参照一期stdio协议实现）
-func (h *Handler) handleToolUserInitDialog(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolUserInitDialog(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	// 详细日志：开始处理用户初始化对话
 	log.Printf("[用户初始化对话] 开始处理请求，参数: %+v", params)
 
@@ -2562,7 +2982,7 @@ func (h *Handler) createEnhancedResponse(result interface{}, success bool, messa
 }
 
 // handleToolLocalOperationCallback 处理本地操作回调工具调用
-func (h *Handler) handleToolLocalOperationCallback(params map[string]interface{}) (interface{}, error) {
+func (h *Handler) handleToolLocalOperationCallback(ctx context.Context, params map[string]interface{}) (interface{}, error) {
 	callbackID, ok := params["callbackId"].(string)
 	if !ok || callbackID == "" {
 		return nil, fmt.Errorf("缺少必需参数: callbackId")
@@ -3260,4 +3680,118 @@ func (h *Handler) handleDebugWSConnections(c *gin.Context) {
 		"userDetails":      userDetails,
 		"mode":             "debug-detailed",
 	})
+}
+
+// triggerContextSynthesis 触发上下文合成验证
+func (h *Handler) triggerContextSynthesis(sessionID, userID string, messages []map[string]interface{}) error {
+	log.Printf("🧠 [上下文合成] 开始为会话 %s 触发上下文合成", sessionID)
+
+	// 提取最后一条用户消息作为查询
+	var userQuery string
+	for i := len(messages) - 1; i >= 0; i-- {
+		if role, ok := messages[i]["role"].(string); ok && role == "user" {
+			if content, ok := messages[i]["content"].(string); ok {
+				userQuery = content
+				break
+			}
+		}
+	}
+
+	if userQuery == "" {
+		log.Printf("⚠️ [上下文合成] 未找到用户查询，跳过上下文合成")
+		return nil
+	}
+
+	log.Printf("🚀 [上下文合成] 开始真实的上下文合成流程...")
+	log.Printf("📤 [上下文合成] 用户查询: %s", userQuery[:min(100, len(userQuery))])
+
+	// 方案1: 如果有宽召回服务，使用真正的上下文合成
+	if h.wideRecallService != nil {
+		log.Printf("🎯 [上下文合成] 使用宽召回服务进行真实上下文合成")
+		return h.executeRealContextSynthesis(sessionID, userID, userQuery)
+	}
+
+	// 方案2: 使用LLMDrivenContextService模拟上下文合成，但调用真实的LLM
+	log.Printf("🎭 [上下文合成] 宽召回服务未初始化，使用LLMDrivenContextService模拟上下文合成")
+	return h.executeMockContextSynthesis(sessionID, userID, userQuery)
+}
+
+// executeRealContextSynthesis 执行真实的上下文合成
+func (h *Handler) executeRealContextSynthesis(sessionID, userID, userQuery string) error {
+	// 构建上下文合成请求
+	synthesisReq := &models.ContextSynthesisRequest{
+		UserID:         userID,
+		SessionID:      sessionID,
+		WorkspaceID:    "/default/workspace",
+		UserQuery:      userQuery,
+		IntentAnalysis: nil,
+		CurrentContext: nil,
+		RetrievalResults: &models.RetrievalResults{
+			TotalResults:     0,
+			TimelineResults:  []models.TimelineResult{},
+			KnowledgeResults: []models.KnowledgeResult{},
+			VectorResults:    []models.VectorResult{},
+		},
+		SynthesisConfig: &models.SynthesisConfig{
+			LLMTimeout:           60,
+			MaxTokens:            8000,
+			Temperature:          0.1,
+			ConfidenceThreshold:  0.7,
+			ConflictResolution:   "time_priority",
+			InformationFusion:    "weighted_merge",
+			QualityAssessment:    "comprehensive",
+			UpdateThreshold:      0.4,
+			PersistenceThreshold: 0.7,
+		},
+		RequestTime: time.Now(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	startTime := time.Now()
+	synthesisResp, err := h.wideRecallService.ExecuteContextSynthesis(ctx, synthesisReq)
+	processingTime := time.Since(startTime)
+
+	if err != nil {
+		log.Printf("❌ [上下文合成] 真实执行失败: %v", err)
+		return err
+	}
+
+	log.Printf("✅ [上下文合成] 真实执行成功!")
+	log.Printf("📊 [上下文合成] 处理时间: %dms", processingTime.Milliseconds())
+	log.Printf("📊 [上下文合成] 评估结果: %+v", synthesisResp.EvaluationResult)
+	log.Printf("📊 [上下文合成] 合成上下文是否为nil: %t", synthesisResp.SynthesizedContext == nil)
+
+	return nil
+}
+
+// executeMockContextSynthesis 执行模拟的上下文合成
+func (h *Handler) executeMockContextSynthesis(sessionID, userID, userQuery string) error {
+	// 使用现有的LLMDrivenContextService进行上下文合成验证
+	retrieveReq := models.RetrieveContextRequest{
+		SessionID: sessionID,
+		Query:     userQuery,
+		Strategy:  "context_synthesis", // 使用上下文合成策略
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	startTime := time.Now()
+	resp, err := h.contextService.RetrieveContext(ctx, retrieveReq)
+	processingTime := time.Since(startTime)
+
+	if err != nil {
+		log.Printf("❌ [上下文合成] 模拟执行失败: %v", err)
+		return err
+	}
+
+	log.Printf("✅ [上下文合成] 模拟执行成功!")
+	log.Printf("📊 [上下文合成] 处理时间: %dms", processingTime.Milliseconds())
+	log.Printf("📊 [上下文合成] 短期记忆长度: %d", len(resp.ShortTermMemory))
+	log.Printf("📊 [上下文合成] 长期记忆长度: %d", len(resp.LongTermMemory))
+	log.Printf("📊 [上下文合成] 相关知识长度: %d", len(resp.RelevantKnowledge))
+
+	return nil
 }

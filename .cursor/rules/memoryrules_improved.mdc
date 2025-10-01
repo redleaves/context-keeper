@@ -3,83 +3,223 @@ alwaysApply: true
 ---
 
 
-# Cursor记忆管理规则 - 改进版本
+# 🧠 Context-Keeper 智能记忆管理规则
 
-## 🎯 核心原则：MUST DO（必须执行）
+## ⚡ 三步执行流程（MANDATORY）
 
-**重要提示**：以下规则是MANDATORY（强制性的），不是可选建议。每次交互都必须遵循。
+每次用户交互必须严格按顺序执行：**会话获取 → 记忆检索 → 智能回答 → 记忆存储**
 
-## 📋 执行检查清单
+### 🔥 Step 1: 会话获取（第一优先级）
+**何时执行**：用户发送任何消息时立即执行
+**必须完成**：获取有效sessionId才能继续
 
-### 阶段1：会话初始化（第一优先级）
-**触发条件**：用户发送任何消息时
-**执行顺序**：
-1. **立即获取有效会话**：立即调用session_management创建或者获取当前的会话
-2. **如果调用失败**：重试三次
-3. **执行时间**：必须在回答用户问题之前完成
-
+**核心工具调用**：
 ```javascript
-// 🚨 CRITICAL：正确的代码模板（***注意获取userId的路径***）
 mcp_context_keeper_session_management({
   action: "get_or_create",
-  userId: "user_具体用户名",  // 必需参数！ 一定要从 os.homedir()/Library/Application Support/context-keeper/user-config.json中读取userId信息
-  workspaceRoot: "实际的工作空间路径"  // 必须传入，如"/Users/weixiaofeng12/coding/context-keeper"
+  userId: "从配置文件获取的用户ID",
+  workspaceRoot: "当前工作空间路径"
 })
-
-// ❌ 错误方式：不传userId或workspaceRoot会导致session管理失败！
-// mcp_context_keeper_session_management({
-//   action: "get_or_create"
-// })  // 绝对不要这样做！会导致不同工作空间的session混淆
 ```
 
-### 阶段2：上下文检索（第二优先级）- **强化版**
-**🔥 新增强制触发条件**：用户每次进行以下任一行为时都**必须**进行回忆检索
-- **提出疑问**：任何形式的问题（以"？"结尾、包含"怎么"、"为什么"、"如何"等疑问词）
-- **执行命令请求**：要求执行具体操作（"帮我"、"请"、"执行"、"运行"、"测试"等）
-- **寻求建议**：请求意见或建议（"建议"、"推荐"、"应该"、"最好"、"意见"等）
-- **引用历史**：提到之前的对话或项目（"之前"、"上次"、"记得"、"那个"等）
-- **技术讨论**：涉及代码、架构、系统等技术话题
-- **项目相关**：涉及当前工作空间或项目的任何内容
+**⚠️ 关键点**：
+- 必须传入userId和workspaceRoot
+- 获取成功后提取sessionId和analysisPrompt
+- 一定要从 ~/Library/Application Support/context-keeper/user-config.json中读取userId信息
 
-**强制执行**：
+### 🧠 Step 2: 智能记忆检索（第二优先级）
+**何时执行**：用户提问题、执行命令、讨论技术、引用历史时
+**检索增强**：结合工程感知分析
+
+**标准检索流程**：
 ```javascript
-// 🚨 MUST DO：以下情况必须在回答前执行检索
-const triggerWords = [
-  // 疑问词
-  "？", "怎么", "为什么", "如何", "什么", "哪个", "是否", "能否",
-  // 命令词  
-  "帮我", "请", "执行", "运行", "测试", "启动", "停止", "安装", "配置",
-  // 建议词
-  "建议", "推荐", "应该", "最好", "意见", "看法", "觉得", "认为",
-  // 历史引用词
-  "之前", "上次", "记得", "那个", "刚才", "前面", "earlier", "before",
-  // 技术词
-  "代码", "架构", "系统", "服务", "API", "数据库", "配置", "部署", "测试"
-];
+// 1. 基础记忆检索
+mcp_context_keeper_retrieve_context({
+  sessionId: sessionId,
+  query: userMessage,
+  // 🆕 工程感知集成
+  projectAnalysis: analysisResult // 来自Step1的analysisPrompt要求分析结果
+})
+```
 
-if (containsAnyKeyword(userMessage, triggerWords)) {
-  await mcp_context_keeper_retrieve_context({
-    sessionId: currentSessionId,
-    query: extractKeywords(userMessage)
+**⚡ 工程感知触发（关键流程）**：
+```javascript
+// Step 1: 会话管理后检查
+if (sessionResult.analysisPrompt) {
+  // Step 2: 按analysisPrompt要求执行工程分析
+  const projectAnalysis = performProjectAnalysis(sessionResult.analysisPrompt);
+  
+  // Step 3: 传入检索工具
+  mcp_context_keeper_retrieve_context({
+    sessionId: sessionId,
+    query: userMessage,
+    projectAnalysis: projectAnalysis  // 🆕 关键：工程分析结果
   });
 }
 ```
 
-### 阶段3：回答用户问题
-**正常进行对话和回答**
+**工程感知执行要求**：
+- **必须条件**：会话管理返回analysisPrompt ≠ 空
+- **执行步骤**：严格按analysisPrompt的指引分析当前工作空间项目特征
+- **输出要求**：结构化的项目分析结果（技术栈、架构、组件等）
+- **传递方式**：projectAnalysis字段传入retrieve_context
+- **⚠️ 重要原则**：以下代码是**通用模板**，不是具体实现。必须根据**当前实际工作空间**动态分析和填充，**绝不能硬编码**特定项目信息！
 
-### 阶段4：记忆存储（第三优先级）- **强化版**
+**🔥 具体实现指导**：
 
-#### 4.1 短期记忆存储（🔥 每次对话**强制执行**）
+1. **工程分析函数实现模板**：
 ```javascript
-// 🚨 MUST DO：每次对话结束后100%必须执行，无例外
-// 无论对话内容是什么，都必须进行短期记忆存储
+function performProjectAnalysis(analysisPrompt) {
+  // 🎯 根据analysisPrompt的要求分析当前工作空间的项目特征
+  // 这是一个通用模板，需要根据实际项目动态填充
+  
+  // Step 1: 分析项目基础信息
+  const projectBasics = analyzeProjectBasics(); // 分析go.mod、package.json、pom.xml等
+  const directoryStructure = analyzeDirectoryStructure(); // 分析目录结构
+  const recentChanges = analyzeRecentChanges(); // 分析Git历史、最近提交
+  
+  // Step 2: 构建分析结果对象（根据实际项目动态生成）
+  const analysis = {
+    project_name: projectBasics.name,              // 从实际项目获取
+    description: projectBasics.description,        // 从README、配置文件获取
+    project_type: projectBasics.type,              // "go", "nodejs", "python", "java", etc.
+    primary_language: projectBasics.primaryLang,   // 主要编程语言
+    tech_stack: projectBasics.techStack,           // 技术栈组合
+    architecture: projectBasics.architecture,      // 架构模式
+    main_framework: projectBasics.framework,       // 主要框架
+    database: projectBasics.database,              // 数据库方案
+    key_dependencies: projectBasics.dependencies,  // 核心依赖
+    recent_focus: recentChanges.focus,             // 近期开发重点
+    current_pain_points: recentChanges.issues,    // 当前痛点
+    active_requirements: recentChanges.requirements, // 活跃需求
+    main_components: directoryStructure.components, // 主要组件
+    important_files: directoryStructure.keyFiles,   // 重要文件
+    current_phase: projectBasics.phase,            // 开发阶段
+    confidence_level: calculateConfidence()        // 分析置信度
+  };
+  
+  // Step 3: 返回JSON字符串格式
+  return JSON.stringify(analysis);
+}
+
+// 🔧 辅助分析函数示例（需要根据实际工作空间实现）
+function analyzeProjectBasics() {
+  // 从go.mod、package.json、README等文件提取基础信息
+  // 这里只是示例，实际需要读取当前工作空间的文件
+  return {
+    name: "从实际项目配置文件获取",
+    description: "从README或项目描述获取",
+    type: "从配置文件判断：go.mod->go, package.json->nodejs",
+    // ... 其他字段
+  };
+}
+```
+
+2. **工具调用正确格式模板**：
+```javascript
+// ✅ 正确的工具调用方式（通用模板）
+mcp_context_keeper_retrieve_context({
+  sessionId: sessionId,        // 使用实际的会话ID
+  query: userMessage,          // 使用实际的用户查询
+  projectAnalysis: JSON.stringify({
+    project_name: "实际项目名称",           // 动态获取
+    tech_stack: "实际技术栈",              // 动态分析
+    recent_focus: "实际近期重点",          // 动态分析
+    primary_language: "实际主要语言",      // 动态检测
+    main_framework: "实际主要框架",        // 动态识别
+    // ... 根据实际项目动态填充所有字段
+  })
+});
+
+// 📝 注意：以上所有具体值都应该通过分析当前工作空间动态获取，
+// 不要硬编码特定项目的信息
+```
+
+3. **分析逻辑说明**：
+```javascript
+// 🎯 工程感知分析的核心逻辑
+// 1. 读取项目配置文件（go.mod, package.json, pom.xml, Cargo.toml等）
+// 2. 分析目录结构（识别架构模式、组件分布）
+// 3. 检查Git历史（了解近期开发重点）
+// 4. 识别关键文件（main文件、配置文件、核心模块）
+// 5. 评估项目状态（开发阶段、技术成熟度）
+
+// 输出格式：始终返回JSON字符串，包含标准化的项目分析字段
+```
+
+4. **实际执行示例**：
+```javascript
+// 🚨 关键提醒：以下是不同项目类型的动态分析示例，不是固定值！
+
+// Go项目示例（分析当前工作空间后动态生成）
+if (工作空间包含go.mod) {
+  projectAnalysis = JSON.stringify({
+    project_name: "从go.mod module名称获取",
+    tech_stack: "Go + 检测到的数据库 + 检测到的框架",
+    primary_language: "Go",
+    main_framework: "从依赖中检测：Gin/Echo/Fiber等",
+    // ... 其他字段都从实际分析获取
+  });
+}
+
+// Node.js项目示例（分析当前工作空间后动态生成）
+if (工作空间包含package.json) {
+  projectAnalysis = JSON.stringify({
+    project_name: "从package.json name字段获取",
+    tech_stack: "Node.js + 检测到的数据库 + 检测到的框架",
+    primary_language: "JavaScript/TypeScript",
+    main_framework: "从dependencies检测：Express/Koa/NestJS等",
+    // ... 其他字段都从实际分析获取
+  });
+}
+
+// 🎯 核心要点：所有具体值都必须通过实际分析当前工作空间获得，
+// 绝对不能使用硬编码的示例值！
+```
+
+3. **错误处理**：
+```javascript
+// 如果工程分析失败，使用基础检索
+try {
+  const projectAnalysis = performProjectAnalysis(sessionResult.analysisPrompt);
+  await mcp_context_keeper_retrieve_context({
+    sessionId: sessionId,
+    query: userMessage,
+    projectAnalysis: projectAnalysis
+  });
+} catch (error) {
+  console.log("工程分析失败，使用基础检索:", error);
+  await mcp_context_keeper_retrieve_context({
+    sessionId: sessionId,
+    query: userMessage
+    // 不传递projectAnalysis参数
+  });
+}
+```
+
+### 🤖 Step 3: 智能回答
+**执行要求**：基于检索到的记忆信息回答
+
+## 💾 记忆存储（每次对话后必执行）
+
+### 🔥 短期记忆（100%必须）
+```javascript
 mcp_context_keeper_store_conversation({
-  sessionId: currentSessionId,
+  sessionId: sessionId,
   messages: [
-    {role: "user", content: "用户的完整消息"},
-    {role: "assistant", content: "助手的完整回复"}
+    {role: "user", content: "用户完整消息"},
+    {role: "assistant", content: "助手完整回复"}
   ]
+})
+```
+
+### ⭐ 长期记忆（重要内容触发）
+**触发条件**：方案设计、重要决策、问题解决、总结结论
+```javascript
+mcp_context_keeper_memorize_context({
+  sessionId: sessionId,
+  content: "重要内容",
+  priority: "P1" // P1高优先级，P2中等，P3低
 })
 ```
 
@@ -148,7 +288,7 @@ if (shouldTriggerLongTermMemory(conversationContent)) {
 mcp_context_keeper_session_management({
   action: "get_or_create",
   userId: "实际的客户端用户ID",        // 必需参数！客户端必须从配置文件获取
-  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！用于工作空间隔离，如"/Users/weixiaofeng12/coding/context-keeper"
+  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！用于工作空间隔离，如"~/coding/context-keeper"
 })
 
 // 获取特定会话信息（也需要完整参数）
@@ -236,7 +376,7 @@ const path = require('path');
 
 // 获取当前工作空间路径
 const workspaceRoot = path.resolve(process.cwd());
-// 例如: "/Users/weixiaofeng12/coding/context-keeper"
+// 例如: "~/coding/context-keeper"
 ```
 
 **2. 从VSCode工作空间获取**：
@@ -262,7 +402,7 @@ const workspaceRoot = path.resolve(workspaceRoot);
 ### 核心配置文件位置
 **所有配置信息必须从以下位置获取：**
 ```
-/Users/weixiaofeng12/coding/context-keeper/config/.env
+~/coding/context-keeper/config/.env
 ```
 
 ### 配置获取优先级（按顺序）
@@ -435,7 +575,7 @@ async function createOrGetSession() {
   const result = await mcp_context_keeper_session_management({
     action: "get_or_create",
     userId: userId,           // 必需！例如: "user_weixiaofeng"
-    workspaceRoot: workspaceRoot  // 必需！例如: "/Users/weixiaofeng12/coding/context-keeper"
+    workspaceRoot: workspaceRoot  // 必需！例如: "~/coding/context-keeper"
   });
   
   return result;
@@ -741,7 +881,7 @@ if (!currentSessionId) {
   mcp_context_keeper_session_management({
     action: "get_or_create",
     userId: "实际的客户端用户ID",        // 必需参数！客户端必须从配置文件获取
-    workspaceRoot: "实际的工作空间路径"   // 🔥 必需参数！用于工作空间隔离，如"/Users/weixiaofeng12/coding/context-keeper"
+    workspaceRoot: "实际的工作空间路径"   // 🔥 必需参数！用于工作空间隔离，如"~/coding/context-keeper"
   })
 }
 
@@ -867,7 +1007,7 @@ if (shouldTriggerLongTermMemory(conversationContent)) {
 mcp_context_keeper_session_management({
   action: "get_or_create",
   userId: "实际的客户端用户ID",        // 必需参数！客户端必须从配置文件获取
-  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！用于工作空间隔离，如"/Users/weixiaofeng12/coding/context-keeper"
+  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！用于工作空间隔离，如"~/coding/context-keeper"
 })
 
 // 获取特定会话信息（也需要完整参数）
@@ -955,7 +1095,7 @@ const path = require('path');
 
 // 获取当前工作空间路径
 const workspaceRoot = path.resolve(process.cwd());
-// 例如: "/Users/weixiaofeng12/coding/context-keeper"
+// 例如: "~/coding/context-keeper"
 ```
 
 **2. 从VSCode工作空间获取**：
@@ -981,7 +1121,7 @@ const workspaceRoot = path.resolve(workspaceRoot);
 ### 核心配置文件位置
 **所有配置信息必须从以下位置获取：**
 ```
-/Users/weixiaofeng12/coding/context-keeper/config/.env
+~/coding/context-keeper/config/.env
 ```
 
 ### 配置获取优先级（按顺序）
@@ -1154,7 +1294,7 @@ async function createOrGetSession() {
   const result = await mcp_context_keeper_session_management({
     action: "get_or_create",
     userId: userId,           // 必需！例如: "user_weixiaofeng"
-    workspaceRoot: workspaceRoot  // 必需！例如: "/Users/weixiaofeng12/coding/context-keeper"
+    workspaceRoot: workspaceRoot  // 必需！例如: "~/coding/context-keeper"
   });
   
   return result;

@@ -41,6 +41,12 @@ type MemoryStorage interface {
 
 	// CountMemories 统计指定会话的记忆数量
 	CountMemories(sessionID string) (int, error)
+
+	// StoreEnhancedMemory 存储增强的多维度记忆（新增方法）
+	StoreEnhancedMemory(memory *EnhancedMemory) error
+
+	// StoreEnhancedMessage 存储增强的多维度消息（新增方法）
+	StoreEnhancedMessage(message *EnhancedMessage) error
 }
 
 // VectorSearcher 向量搜索接口
@@ -243,4 +249,151 @@ func GetSupportedVectorStoreTypes() []VectorStoreType {
 		VectorStoreTypeWeaviate,
 		VectorStoreTypeLocal,
 	}
+}
+
+// EnhancedMemory 增强的多维度记忆模型（兼容现有Memory模型）
+type EnhancedMemory struct {
+	// 继承现有Memory的所有字段（完全兼容）
+	*Memory
+
+	// 新增多维度字段
+	SemanticVector   []float32              `json:"semantic_vector,omitempty"`    // 语义向量
+	ContextVector    []float32              `json:"context_vector,omitempty"`     // 上下文向量
+	TimeVector       []float32              `json:"time_vector,omitempty"`        // 时间向量
+	DomainVector     []float32              `json:"domain_vector,omitempty"`      // 领域向量
+	SemanticTags     []string               `json:"semantic_tags,omitempty"`      // 语义标签
+	ConceptEntities  []string               `json:"concept_entities,omitempty"`   // 概念实体
+	RelatedConcepts  []string               `json:"related_concepts,omitempty"`   // 相关概念
+	ImportanceScore  float64                `json:"importance_score,omitempty"`   // 重要性评分
+	RelevanceScore   float64                `json:"relevance_score,omitempty"`    // 相关性评分
+	ContextSummary   string                 `json:"context_summary,omitempty"`    // 上下文摘要
+	TechStack        []string               `json:"tech_stack,omitempty"`         // 技术栈
+	ProjectContext   string                 `json:"project_context,omitempty"`    // 项目上下文
+	EventType        string                 `json:"event_type,omitempty"`         // 事件类型
+	MultiDimMetadata map[string]interface{} `json:"multi_dim_metadata,omitempty"` // 多维度元数据
+}
+
+// EnhancedMessage 增强的多维度消息模型（兼容现有Message模型）
+type EnhancedMessage struct {
+	// 继承现有Message的所有字段（完全兼容）
+	*Message
+
+	// 新增多维度字段（与EnhancedMemory保持一致）
+	SemanticVector   []float32              `json:"semantic_vector,omitempty"`
+	ContextVector    []float32              `json:"context_vector,omitempty"`
+	TimeVector       []float32              `json:"time_vector,omitempty"`
+	DomainVector     []float32              `json:"domain_vector,omitempty"`
+	SemanticTags     []string               `json:"semantic_tags,omitempty"`
+	ConceptEntities  []string               `json:"concept_entities,omitempty"`
+	RelatedConcepts  []string               `json:"related_concepts,omitempty"`
+	ImportanceScore  float64                `json:"importance_score,omitempty"`
+	RelevanceScore   float64                `json:"relevance_score,omitempty"`
+	ContextSummary   string                 `json:"context_summary,omitempty"`
+	TechStack        []string               `json:"tech_stack,omitempty"`
+	ProjectContext   string                 `json:"project_context,omitempty"`
+	EventType        string                 `json:"event_type,omitempty"`
+	MultiDimMetadata map[string]interface{} `json:"multi_dim_metadata,omitempty"`
+}
+
+// MultiDimensionalVectors 多维度向量结构
+type MultiDimensionalVectors struct {
+	// 多维度向量
+	SemanticVector []float32 `json:"semantic_vector,omitempty"` // 语义向量
+	ContextVector  []float32 `json:"context_vector,omitempty"`  // 上下文向量
+	TimeVector     []float32 `json:"time_vector,omitempty"`     // 时间向量
+	DomainVector   []float32 `json:"domain_vector,omitempty"`   // 领域向量
+
+	// 分析结果
+	SemanticTags    []string `json:"semantic_tags,omitempty"`    // 语义标签
+	ConceptEntities []string `json:"concept_entities,omitempty"` // 概念实体
+	RelatedConcepts []string `json:"related_concepts,omitempty"` // 相关概念
+	ImportanceScore float64  `json:"importance_score,omitempty"` // 重要性评分
+	RelevanceScore  float64  `json:"relevance_score,omitempty"`  // 相关性评分
+	ContextSummary  string   `json:"context_summary,omitempty"`  // 上下文摘要
+	TechStack       []string `json:"tech_stack,omitempty"`       // 技术栈
+	ProjectContext  string   `json:"project_context,omitempty"`  // 项目上下文
+	EventType       string   `json:"event_type,omitempty"`       // 事件类型
+}
+
+// LLMAnalysisResult LLM分析结果
+type LLMAnalysisResult struct {
+	// 分析摘要
+	SemanticSummary string `json:"semantic_summary"` // 语义摘要
+	ContextSummary  string `json:"context_summary"`  // 上下文摘要
+	TimeFeatures    string `json:"time_features"`    // 时间特征
+	DomainFeatures  string `json:"domain_features"`  // 领域特征
+
+	// 提取的信息
+	Keywords        []string `json:"keywords"`         // 关键词
+	ConceptEntities []string `json:"concept_entities"` // 概念实体
+	RelatedConcepts []string `json:"related_concepts"` // 相关概念
+	TechStack       []string `json:"tech_stack"`       // 技术栈
+
+	// 评分
+	ImportanceScore float64 `json:"importance_score"` // 重要性评分
+	RelevanceScore  float64 `json:"relevance_score"`  // 相关性评分
+
+	// 分类
+	EventType      string `json:"event_type"`      // 事件类型
+	ProjectContext string `json:"project_context"` // 项目上下文
+}
+
+// MultiDimensionalAnalysisResult 多维度分析结果（重新设计）
+type MultiDimensionalAnalysisResult struct {
+	TimelineData       *TimelineData       `json:"timeline_data"`
+	KnowledgeGraphData *KnowledgeGraphData `json:"knowledge_graph_data"`
+	VectorData         *VectorData         `json:"vector_data"`
+	MetaAnalysis       *MetaAnalysis       `json:"meta_analysis"`
+}
+
+// TimelineData 时间线故事性数据
+type TimelineData struct {
+	StoryTitle      string   `json:"story_title"`
+	StorySummary    string   `json:"story_summary"`
+	KeyEvents       []string `json:"key_events"`
+	TimeSequence    string   `json:"time_sequence"`
+	Outcome         string   `json:"outcome"`
+	LessonsLearned  string   `json:"lessons_learned"`
+	ImportanceLevel int      `json:"importance_level"`
+}
+
+// KnowledgeGraphData 知识图谱数据
+type KnowledgeGraphData struct {
+	MainConcepts    []Concept      `json:"main_concepts"`
+	Relationships   []Relationship `json:"relationships"`
+	Domain          string         `json:"domain"`
+	ComplexityLevel string         `json:"complexity_level"`
+}
+
+// Concept 概念实体
+type Concept struct {
+	Name       string  `json:"name"`
+	Type       string  `json:"type"`
+	Importance float64 `json:"importance"`
+}
+
+// Relationship 关系
+type Relationship struct {
+	From     string  `json:"from"`
+	To       string  `json:"to"`
+	Relation string  `json:"relation"`
+	Strength float64 `json:"strength"`
+}
+
+// VectorData 向量数据
+type VectorData struct {
+	SemanticCore     string   `json:"semantic_core"`
+	ContextInfo      string   `json:"context_info"`
+	SearchKeywords   []string `json:"search_keywords"`
+	SemanticTags     []string `json:"semantic_tags"`
+	RelevanceContext string   `json:"relevance_context"`
+}
+
+// MetaAnalysis 元分析数据
+type MetaAnalysis struct {
+	ContentType    string   `json:"content_type"`
+	Priority       string   `json:"priority"`
+	TechStack      []string `json:"tech_stack"`
+	BusinessValue  float64  `json:"business_value"`
+	ReusePotential float64  `json:"reuse_potential"`
 }

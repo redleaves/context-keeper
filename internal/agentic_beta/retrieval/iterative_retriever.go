@@ -1014,30 +1014,7 @@ func (ir *IterativeRetriever) printIterativeRetrievalComparison(log *IterativeRe
 	fmt.Println("\n" + strings.Repeat("=", 100))
 }
 
-func (ir *IterativeRetriever) convertToDocumentResults(documents []Document) []DocumentResult {
-	results := make([]DocumentResult, 0, len(documents))
-	for _, doc := range documents {
-		result := DocumentResult{
-			ID:      doc.ID,
-			Title:   doc.Title,
-			Content: truncateString(doc.Content, 200),
-			Score:   doc.Score,
-			Source:  doc.Source,
-		}
-
-		// 根据评分分配相关性标签
-		if doc.Score >= 0.8 {
-			result.RelevanceTag = "高相关"
-		} else if doc.Score >= 0.6 {
-			result.RelevanceTag = "中等相关"
-		} else {
-			result.RelevanceTag = "低相关"
-		}
-
-		results = append(results, result)
-	}
-	return results
-}
+// convertToDocumentResults 函数已删除，因为未被使用
 
 func (ir *IterativeRetriever) calculateQuerySimilarity(query1, query2 string) float64 {
 	// 简单的查询相似度计算

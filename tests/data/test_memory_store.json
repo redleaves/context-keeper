@@ -1,0 +1,38 @@
+{
+  "memoryId": "memory-test-20230322",
+  "batchId": "memory-test-20230322",
+  "sessionId": "testing-session-001",
+  "messages": [
+    {
+      "role": "user",
+      "content": "请检查一下我们最近对向量存储ID的修改是否正确",
+      "timestamp": 1711212165
+    },
+    {
+      "role": "assistant",
+      "content": "我已经检查了向量存储的修改，现在我们使用batchId作为向量存储ID而不是message.ID，这样可以更好地组织和检索相关内容。具体修改包括：1. 在StoreVectors和StoreMessage函数中优先使用batchId作为存储ID；2. 添加了格式化的时间戳字段formatted_time；3. 保留了原始message_id和memory_id作为子字段方便查询。",
+      "timestamp": 1711212170
+    },
+    {
+      "role": "user",
+      "content": "还需要添加格式化的时间戳字段",
+      "timestamp": 1711212180
+    },
+    {
+      "role": "assistant",
+      "content": "我已经添加了formatted_time字段，它将时间戳格式化为'2006-01-02 15:04:05'格式，方便查看和检索。这样在向量数据库中就可以同时存储原始时间戳和人类可读的时间格式。",
+      "timestamp": 1711212190
+    },
+    {
+      "role": "user",
+      "content": "对于需要拆分的情况，batchId的格式应该是什么样的？",
+      "timestamp": 1711212200
+    },
+    {
+      "role": "assistant",
+      "content": "对于需要拆分的情况，batchId的格式应该是'memoryId-n'，其中n是拆分的索引编号。例如，如果memoryId是'abc-123'，那么拆分后的batchId可能是'abc-123-1'、'abc-123-2'、'abc-123-3'等。这样可以保持原始memoryId的关联，同时区分不同的拆分部分。",
+      "timestamp": 1711212210
+    }
+  ],
+  "summary": "讨论了向量存储ID的修改，确认使用batchId作为主键ID而非message.ID。添加了格式化时间戳字段formatted_time，并确定了拆分情况下batchId的格式为'memoryId-n'。"
+} 

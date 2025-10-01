@@ -44,8 +44,8 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("正在启动ContextKeeper MCP服务...")
 
-	// 初始化共享组件（现在返回AgenticContextService以支持最新智能功能）
-	agenticContextService, _, cancelCleanup := initializeServices()
+	// 初始化共享组件（现在返回LLMDrivenContextService以支持LLM驱动智能功能）
+	llmDrivenContextService, _, cancelCleanup := initializeServices()
 	defer cancelCleanup()
 
 	// 创建MCP服务器
@@ -69,8 +69,8 @@ func main() {
 	)
 
 	// 注册所有MCP工具
-	// 🔥 修改：传递AgenticContextService的基础ContextService给MCP工具注册
-	registerMCPTools(s, agenticContextService.GetContextService())
+	// 🔥 修改：传递LLMDrivenContextService给MCP工具注册
+	registerMCPTools(s, llmDrivenContextService)
 
 	// 启动MCP服务器（阻塞运行）
 	log.Println("Context-Keeper STDIO MCP 服务器已启动，等待连接...")

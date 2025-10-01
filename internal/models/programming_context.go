@@ -129,23 +129,8 @@ type KnowledgeGraph struct {
 	Edges []KnowledgeEdge `json:"edges,omitempty"`
 }
 
-// KnowledgeNode 知识图谱节点
-type KnowledgeNode struct {
-	ID       string                 `json:"id"`
-	Type     string                 `json:"type"` // file, function, class, decision, concept
-	Label    string                 `json:"label"`
-	Content  string                 `json:"content,omitempty"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-}
-
-// KnowledgeEdge 知识图谱边
-type KnowledgeEdge struct {
-	Source    string  `json:"source"`
-	Target    string  `json:"target"`
-	Type      string  `json:"type"` // depends_on, related_to, implements, references
-	Weight    float64 `json:"weight,omitempty"`
-	Timestamp int64   `json:"timestamp,omitempty"`
-}
+// 注意：KnowledgeNode和KnowledgeEdge现在使用unified_models.go中的统一定义
+// 这里不再重复定义，请导入并使用统一模型
 
 // ContextType 上下文类型常量
 const (

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -127,6 +129,514 @@ func (s *VectorService) GenerateEmbedding(text string) ([]float32, error) {
 	log.Printf("[向量服务] 成功完成文字转向量 ============================\n")
 
 	return result.Data[0].Embedding, nil
+}
+
+// GenerateMultiDimensionalVectors 生成多维度向量（重新设计：基于LLM的一次性多维度数据抽取）
+func (s *VectorService) GenerateMultiDimensionalVectors(content string, llmAPIKey string) (*models.MultiDimensionalVectors, error) {
+	log.Printf("\n[多维度向量生成] 🔥 开始基于LLM的一次性多维度数据抽取 ============================")
+	log.Printf("[多维度向量生成] 内容长度: %d 字符", len(content))
+	log.Printf("[多维度向量生成] 内容预览: %s", content[:min(200, len(content))])
+
+	// 🔥 核心：一次LLM调用，抽取符合不同存储引擎的形态数据
+	analysisResult, err := s.analyzeLLMContent(content, llmAPIKey)
+	if err != nil {
+		log.Printf("[多维度向量生成] LLM分析失败: %v", err)
+		return nil, fmt.Errorf("LLM分析失败: %w", err)
+	}
+
+	log.Printf("[多维度向量生成] 🎯 LLM一次性多维度分析完成:")
+	if analysisResult.TimelineData != nil {
+		log.Printf("  时间线故事: %s", analysisResult.TimelineData.StoryTitle)
+		log.Printf("  关键事件数: %d", len(analysisResult.TimelineData.KeyEvents))
+	}
+	if analysisResult.KnowledgeGraphData != nil {
+		log.Printf("  知识概念数: %d", len(analysisResult.KnowledgeGraphData.MainConcepts))
+		log.Printf("  关系数: %d", len(analysisResult.KnowledgeGraphData.Relationships))
+	}
+	if analysisResult.VectorData != nil {
+		log.Printf("  语义核心: %s", analysisResult.VectorData.SemanticCore[:min(50, len(analysisResult.VectorData.SemanticCore))])
+		log.Printf("  搜索关键词: %v", analysisResult.VectorData.SearchKeywords)
+	}
+
+	// 🔥 第二步：基于分析结果生成专门的向量
+	vectors := &models.MultiDimensionalVectors{}
+
+	// 生成时间线向量（基于故事性摘要）
+	if analysisResult.TimelineData != nil && analysisResult.TimelineData.StorySummary != "" {
+		timelineVector, err := s.GenerateEmbedding(analysisResult.TimelineData.StorySummary)
+		if err != nil {
+			log.Printf("[多维度向量生成] 时间线向量生成失败: %v", err)
+		} else {
+			vectors.TimeVector = timelineVector
+			log.Printf("[多维度向量生成] ✅ 时间线向量生成成功，维度: %d", len(timelineVector))
+		}
+	}
+
+	// 生成知识图谱向量（基于概念和关系）
+	if analysisResult.KnowledgeGraphData != nil {
+		// 构建知识图谱的文本表示
+		var kgText strings.Builder
+		for _, concept := range analysisResult.KnowledgeGraphData.MainConcepts {
+			kgText.WriteString(fmt.Sprintf("%s(%s) ", concept.Name, concept.Type))
+		}
+		for _, rel := range analysisResult.KnowledgeGraphData.Relationships {
+			kgText.WriteString(fmt.Sprintf("%s-%s-%s ", rel.From, rel.Relation, rel.To))
+		}
+
+		if kgText.Len() > 0 {
+			knowledgeVector, err := s.GenerateEmbedding(kgText.String())
+			if err != nil {
+				log.Printf("[多维度向量生成] 知识图谱向量生成失败: %v", err)
+			} else {
+				vectors.DomainVector = knowledgeVector
+				log.Printf("[多维度向量生成] ✅ 知识图谱向量生成成功，维度: %d", len(knowledgeVector))
+			}
+		}
+	}
+
+	// 生成语义向量（基于精炼的语义核心）
+	if analysisResult.VectorData != nil && analysisResult.VectorData.SemanticCore != "" {
+		semanticVector, err := s.GenerateEmbedding(analysisResult.VectorData.SemanticCore)
+		if err != nil {
+			log.Printf("[多维度向量生成] 语义向量生成失败: %v", err)
+		} else {
+			vectors.SemanticVector = semanticVector
+			log.Printf("[多维度向量生成] ✅ 语义向量生成成功，维度: %d", len(semanticVector))
+		}
+	}
+
+	// 生成上下文向量（基于上下文信息）
+	if analysisResult.VectorData != nil && analysisResult.VectorData.ContextInfo != "" {
+		contextVector, err := s.GenerateEmbedding(analysisResult.VectorData.ContextInfo)
+		if err != nil {
+			log.Printf("[多维度向量生成] 上下文向量生成失败: %v", err)
+		} else {
+			vectors.ContextVector = contextVector
+			log.Printf("[多维度向量生成] ✅ 上下文向量生成成功，维度: %d", len(contextVector))
+		}
+	}
+
+	// 🔥 设置结构化分析结果
+	if analysisResult.VectorData != nil {
+		vectors.SemanticTags = analysisResult.VectorData.SemanticTags
+		vectors.ContextSummary = analysisResult.VectorData.RelevanceContext
+	}
+	if analysisResult.MetaAnalysis != nil {
+		vectors.TechStack = analysisResult.MetaAnalysis.TechStack
+		vectors.EventType = analysisResult.MetaAnalysis.ContentType
+		vectors.ImportanceScore = analysisResult.MetaAnalysis.BusinessValue
+		vectors.RelevanceScore = analysisResult.MetaAnalysis.ReusePotential
+		vectors.ProjectContext = analysisResult.MetaAnalysis.Priority
+	}
+
+	// 从知识图谱数据中提取概念实体
+	if analysisResult.KnowledgeGraphData != nil {
+		conceptNames := make([]string, len(analysisResult.KnowledgeGraphData.MainConcepts))
+		for i, concept := range analysisResult.KnowledgeGraphData.MainConcepts {
+			conceptNames[i] = concept.Name
+		}
+		vectors.ConceptEntities = conceptNames
+
+		relatedConcepts := make([]string, len(analysisResult.KnowledgeGraphData.Relationships))
+		for i, rel := range analysisResult.KnowledgeGraphData.Relationships {
+			relatedConcepts[i] = fmt.Sprintf("%s-%s", rel.From, rel.To)
+		}
+		vectors.RelatedConcepts = relatedConcepts
+	}
+
+	log.Printf("[多维度向量生成] 🎉 多维度向量生成完成")
+	log.Printf("  语义向量: %v", len(vectors.SemanticVector) > 0)
+	log.Printf("  上下文向量: %v", len(vectors.ContextVector) > 0)
+	log.Printf("  时间线向量: %v", len(vectors.TimeVector) > 0)
+	log.Printf("  知识图谱向量: %v", len(vectors.DomainVector) > 0)
+	log.Printf("==================================================== 多维度向量生成完成 ====================================================")
+
+	return vectors, nil
+}
+
+// analyzeLLMContent 使用LLM分析内容，提取多维度信息（重新设计）
+func (s *VectorService) analyzeLLMContent(content string, llmAPIKey string) (*models.MultiDimensionalAnalysisResult, error) {
+	log.Printf("\n[LLM内容分析] 开始分析内容 ============================")
+
+	// 构建专门的prompt，让LLM理解我们的意图
+	prompt := s.buildMultiDimensionalAnalysisPrompt(content)
+
+	log.Printf("[LLM内容分析] Prompt长度: %d 字符", len(prompt))
+
+	// 🔍 详细打印Prompt内容
+	log.Printf("🔍 [Prompt详情] ============================")
+	log.Printf("📝 Prompt长度: %d 字符", len(prompt))
+	log.Printf("📝 待分析内容长度: %d 字符", len(content))
+	log.Printf("📝 完整Prompt内容:")
+	log.Printf("%s", prompt)
+	log.Printf("🔍 ==============================")
+
+	log.Printf("[LLM内容分析] 发送LLM分析请求...")
+
+	// 调用LLM API进行分析
+	response, err := s.callLLMAPI(prompt, llmAPIKey)
+	if err != nil {
+		return nil, fmt.Errorf("LLM API调用失败: %w", err)
+	}
+
+	log.Printf("[LLM内容分析] LLM响应长度: %d 字符", len(response))
+	log.Printf("[LLM内容分析] LLM响应内容: %s", response[:min(500, len(response))])
+
+	// 解析LLM响应
+	result, err := s.parseLLMAnalysisResponse(response)
+	if err != nil {
+		return nil, fmt.Errorf("解析LLM响应失败: %w", err)
+	}
+
+	log.Printf("[LLM内容分析] 分析完成:")
+	if result.TimelineData != nil {
+		log.Printf("  时间线重要性: %d", result.TimelineData.ImportanceLevel)
+	}
+	if result.KnowledgeGraphData != nil {
+		log.Printf("  概念数量: %d", len(result.KnowledgeGraphData.MainConcepts))
+	}
+	if result.MetaAnalysis != nil {
+		log.Printf("  内容类型: %s", result.MetaAnalysis.ContentType)
+		log.Printf("  业务价值: %.2f", result.MetaAnalysis.BusinessValue)
+	}
+
+	return result, nil
+}
+
+// buildMultiDimensionalAnalysisPrompt 构建多维度分析的prompt（核心设计）
+func (s *VectorService) buildMultiDimensionalAnalysisPrompt(content string) string {
+	// 🔥 这是整个架构的核心：prompt设计决定了数据质量和查询效率
+	prompt := `你是一个专业的记忆存储分析专家，需要将用户的内容分解为适合不同存储引擎的数据形态。
+
+## 任务目标
+从用户内容中抽取出符合以下三种记忆存储引擎的形态数据：
+1. **时间线故事性存储** - 适合TimescaleDB，记录事件发展过程
+2. **知识图谱存储** - 适合Neo4j，记录概念关系和实体连接
+3. **向量知识库存储** - 适合向量数据库，记录语义和上下文信息
+
+## 输出格式（严格JSON）
+{
+  "timeline_data": {
+    "story_title": "简洁的故事标题（10-20字）",
+    "story_summary": "故事性描述，突出时间发展脉络（50-80字）",
+    "key_events": ["事件1", "事件2", "事件3"],
+    "time_sequence": "时间序列特征描述",
+    "outcome": "最终结果或当前状态",
+    "lessons_learned": "经验教训或收获",
+    "importance_level": 8
+  },
+  "knowledge_graph_data": {
+    "main_concepts": [
+      {"name": "概念名", "type": "技术|业务|工具|方法", "importance": 0.9},
+      {"name": "概念名", "type": "技术|业务|工具|方法", "importance": 0.8}
+    ],
+    "relationships": [
+      {"from": "概念A", "to": "概念B", "relation": "解决|导致|包含|依赖|优化", "strength": 0.9},
+      {"from": "概念C", "to": "概念D", "relation": "解决|导致|包含|依赖|优化", "strength": 0.8}
+    ],
+    "domain": "技术领域分类",
+    "complexity_level": "简单|中等|复杂"
+  },
+  "vector_data": {
+    "semantic_core": "去噪后的核心语义内容（30-50字）",
+    "context_info": "上下文背景信息（30-50字）",
+    "search_keywords": ["搜索关键词1", "搜索关键词2", "搜索关键词3"],
+    "semantic_tags": ["语义标签1", "语义标签2", "语义标签3"],
+    "relevance_context": "相关性上下文描述"
+  },
+  "meta_analysis": {
+    "content_type": "问题解决|技术学习|经验分享|决策记录|讨论交流",
+    "priority": "P1|P2|P3",
+    "tech_stack": ["技术栈1", "技术栈2"],
+    "business_value": 0.8,
+    "reuse_potential": 0.9
+  }
+}
+
+## 分析要求
+1. **时间线数据**：突出故事性和发展脉络，适合按时间检索
+2. **知识图谱数据**：明确概念和关系，适合关联查询
+3. **向量数据**：精炼语义核心，去除噪声，适合相似性搜索
+4. **所有评分**：基于实际价值，范围0-1或1-10
+5. **严格JSON格式**：不要添加任何解释文字
+
+## 待分析内容
+` + content + `
+
+请开始分析：`
+
+	return prompt
+}
+
+// callLLMAPI 调用LLM API
+func (s *VectorService) callLLMAPI(prompt string, apiKey string) (string, error) {
+	// 构建请求体
+	reqBody, err := json.Marshal(map[string]interface{}{
+		"model": "deepseek-chat",
+		"messages": []map[string]interface{}{
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
+		"temperature": 0.1, // 低温度确保结果稳定
+		"max_tokens":  2000,
+	})
+	if err != nil {
+		return "", fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	// 创建HTTP请求
+	req, err := http.NewRequest("POST", "https://api.deepseek.com/v1/chat/completions", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	log.Printf("[LLM API调用] 发送请求到: %s", req.URL.String())
+	log.Printf("[LLM API调用] 请求体大小: %d 字节", len(reqBody))
+
+	// 🔍 详细打印请求参数
+	log.Printf("🔍 [LLM请求详情] ============================")
+	log.Printf("📤 请求URL: %s", req.URL.String())
+	log.Printf("📤 请求方法: %s", req.Method)
+	log.Printf("📤 请求头: Content-Type=%s", req.Header.Get("Content-Type"))
+	log.Printf("📤 请求头: Authorization=%s", req.Header.Get("Authorization")[:20]+"...")
+	log.Printf("📤 请求体内容:")
+	log.Printf("%s", string(reqBody))
+	log.Printf("🔍 ==============================")
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	log.Printf("[LLM API调用] 响应状态码: %d", resp.StatusCode)
+	log.Printf("[LLM API调用] 响应体大小: %d 字节", len(respBody))
+
+	// 🔍 详细打印响应内容
+	log.Printf("🔍 [LLM响应详情] ============================")
+	log.Printf("📥 响应状态码: %d", resp.StatusCode)
+	log.Printf("📥 响应头: Content-Type=%s", resp.Header.Get("Content-Type"))
+	log.Printf("📥 响应体大小: %d 字节", len(respBody))
+	log.Printf("📥 响应体内容:")
+	log.Printf("%s", string(respBody))
+	log.Printf("🔍 ==============================")
+
+	// 检查状态码
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("❌ [LLM API调用] 错误响应: %s", string(respBody))
+		log.Printf("❌ [LLM API调用] 状态码: %d", resp.StatusCode)
+		log.Printf("❌ [LLM API调用] 完整错误信息: %s", string(respBody))
+		return "", fmt.Errorf("API返回错误状态码: %d, 响应: %s", resp.StatusCode, string(respBody))
+	}
+
+	// 解析响应
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("LLM未返回有效响应")
+	}
+
+	content := result.Choices[0].Message.Content
+	log.Printf("[LLM API调用] 成功获取LLM响应，内容长度: %d", len(content))
+
+	// 🔍 详细打印LLM返回的内容
+	log.Printf("🔍 [LLM返回内容] ============================")
+	log.Printf("✅ LLM响应成功")
+	log.Printf("📝 返回内容长度: %d 字符", len(content))
+	log.Printf("📝 返回内容:")
+	log.Printf("%s", content)
+	log.Printf("🔍 ==============================")
+
+	return content, nil
+}
+
+// parseLLMAnalysisResponse 解析LLM分析响应（重新设计）
+func (s *VectorService) parseLLMAnalysisResponse(response string) (*models.MultiDimensionalAnalysisResult, error) {
+	log.Printf("[LLM响应解析] 开始解析响应...")
+
+	// 清理响应内容，提取JSON部分
+	jsonContent := s.extractJSONFromResponse(response)
+
+	log.Printf("[LLM响应解析] 提取的JSON长度: %d", len(jsonContent))
+	log.Printf("[LLM响应解析] JSON内容: %s", jsonContent[:min(300, len(jsonContent))])
+
+	// 解析JSON为新的多维度分析结果
+	var result models.MultiDimensionalAnalysisResult
+	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
+		log.Printf("[LLM响应解析] JSON解析失败: %v", err)
+		log.Printf("[LLM响应解析] 原始响应: %s", response)
+		return nil, fmt.Errorf("JSON解析失败: %w", err)
+	}
+
+	// 验证和清理结果
+	s.validateAndCleanMultiDimensionalResult(&result)
+
+	log.Printf("[LLM响应解析] 解析成功:")
+	if result.TimelineData != nil {
+		log.Printf("  时间线标题: %s", result.TimelineData.StoryTitle)
+	}
+	if result.KnowledgeGraphData != nil {
+		log.Printf("  概念数量: %d", len(result.KnowledgeGraphData.MainConcepts))
+	}
+	if result.VectorData != nil {
+		log.Printf("  语义核心: %s", result.VectorData.SemanticCore[:min(30, len(result.VectorData.SemanticCore))])
+	}
+
+	return &result, nil
+}
+
+// extractJSONFromResponse 从响应中提取JSON内容
+func (s *VectorService) extractJSONFromResponse(response string) string {
+	// 查找JSON开始和结束位置
+	start := strings.Index(response, "{")
+	if start == -1 {
+		log.Printf("[JSON提取] 未找到JSON开始标记")
+		return response
+	}
+
+	// 从后往前查找最后一个}
+	end := strings.LastIndex(response, "}")
+	if end == -1 || end <= start {
+		log.Printf("[JSON提取] 未找到有效的JSON结束标记")
+		return response
+	}
+
+	jsonContent := response[start : end+1]
+	log.Printf("[JSON提取] 提取JSON成功，长度: %d", len(jsonContent))
+
+	return jsonContent
+}
+
+// validateAndCleanAnalysisResult 验证和清理分析结果
+func (s *VectorService) validateAndCleanAnalysisResult(result *models.LLMAnalysisResult) {
+	// 设置默认值
+	if result.ImportanceScore < 0 || result.ImportanceScore > 1 {
+		result.ImportanceScore = 0.5
+	}
+	if result.RelevanceScore < 0 || result.RelevanceScore > 1 {
+		result.RelevanceScore = 0.5
+	}
+
+	// 清理空字符串
+	if result.SemanticSummary == "" {
+		result.SemanticSummary = "内容摘要"
+	}
+	if result.ContextSummary == "" {
+		result.ContextSummary = "上下文信息"
+	}
+	if result.EventType == "" {
+		result.EventType = "其他"
+	}
+
+	// 确保数组不为nil
+	if result.Keywords == nil {
+		result.Keywords = []string{}
+	}
+	if result.ConceptEntities == nil {
+		result.ConceptEntities = []string{}
+	}
+	if result.RelatedConcepts == nil {
+		result.RelatedConcepts = []string{}
+	}
+	if result.TechStack == nil {
+		result.TechStack = []string{}
+	}
+
+	log.Printf("[结果验证] 验证和清理完成")
+}
+
+// validateAndCleanMultiDimensionalResult 验证和清理多维度分析结果
+func (s *VectorService) validateAndCleanMultiDimensionalResult(result *models.MultiDimensionalAnalysisResult) {
+	// 验证时间线数据
+	if result.TimelineData != nil {
+		if result.TimelineData.StoryTitle == "" {
+			result.TimelineData.StoryTitle = "未命名事件"
+		}
+		if result.TimelineData.ImportanceLevel < 1 || result.TimelineData.ImportanceLevel > 10 {
+			result.TimelineData.ImportanceLevel = 5
+		}
+		if result.TimelineData.KeyEvents == nil {
+			result.TimelineData.KeyEvents = []string{}
+		}
+	}
+
+	// 验证知识图谱数据
+	if result.KnowledgeGraphData != nil {
+		if result.KnowledgeGraphData.MainConcepts == nil {
+			result.KnowledgeGraphData.MainConcepts = []models.Concept{}
+		}
+		if result.KnowledgeGraphData.Relationships == nil {
+			result.KnowledgeGraphData.Relationships = []models.Relationship{}
+		}
+		if result.KnowledgeGraphData.Domain == "" {
+			result.KnowledgeGraphData.Domain = "通用"
+		}
+	}
+
+	// 验证向量数据
+	if result.VectorData != nil {
+		if result.VectorData.SemanticCore == "" {
+			result.VectorData.SemanticCore = "内容摘要"
+		}
+		if result.VectorData.SearchKeywords == nil {
+			result.VectorData.SearchKeywords = []string{}
+		}
+		if result.VectorData.SemanticTags == nil {
+			result.VectorData.SemanticTags = []string{}
+		}
+	}
+
+	// 验证元分析数据
+	if result.MetaAnalysis != nil {
+		if result.MetaAnalysis.ContentType == "" {
+			result.MetaAnalysis.ContentType = "其他"
+		}
+		if result.MetaAnalysis.Priority == "" {
+			result.MetaAnalysis.Priority = "P2"
+		}
+		if result.MetaAnalysis.BusinessValue < 0 || result.MetaAnalysis.BusinessValue > 1 {
+			result.MetaAnalysis.BusinessValue = 0.5
+		}
+		if result.MetaAnalysis.ReusePotential < 0 || result.MetaAnalysis.ReusePotential > 1 {
+			result.MetaAnalysis.ReusePotential = 0.5
+		}
+		if result.MetaAnalysis.TechStack == nil {
+			result.MetaAnalysis.TechStack = []string{}
+		}
+	}
+
+	log.Printf("[多维度结果验证] 验证和清理完成")
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // StoreVectors 存储向量到Aliyun向量数据库
@@ -544,6 +1054,355 @@ func (s *VectorService) StoreMessage(message *models.Message) error {
 
 	log.Printf("[向量存储] 成功存储消息ID: %s, 会话: %s, 角色: %s", message.ID, message.SessionID, message.Role)
 	log.Printf("==================================================== 存储消息完成 ====================================================")
+	return nil
+}
+
+// StoreEnhancedMemory 存储增强的多维度记忆（新增方法）
+func (s *VectorService) StoreEnhancedMemory(memory *models.EnhancedMemory) error {
+	log.Printf("\n[增强向量存储] 开始存储增强记忆 ============================")
+	log.Printf("[增强向量存储] 记忆ID: %s, 会话ID: %s, 内容长度: %d",
+		memory.Memory.ID, memory.Memory.SessionID, len(memory.Memory.Content))
+
+	// 🔥 关键改进：生成真实的多维度向量
+	log.Printf("[增强向量存储] 开始生成多维度向量...")
+
+	// 如果多维度向量为空，使用LLM分析生成
+	if len(memory.SemanticVector) == 0 && len(memory.ContextVector) == 0 {
+		// TODO: 从环境变量或配置中获取LLM API Key
+		llmAPIKey := os.Getenv("DEEPSEEK_API_KEY")
+		if llmAPIKey == "" {
+			log.Printf("[增强向量存储] 警告: 未设置DEEPSEEK_API_KEY，跳过多维度向量生成")
+		} else {
+			multiVectors, err := s.GenerateMultiDimensionalVectors(memory.Memory.Content, llmAPIKey)
+			if err != nil {
+				log.Printf("[增强向量存储] 多维度向量生成失败: %v", err)
+				// 不返回错误，继续使用基础向量存储
+			} else {
+				// 将生成的多维度向量设置到memory中
+				memory.SemanticVector = multiVectors.SemanticVector
+				memory.ContextVector = multiVectors.ContextVector
+				memory.TimeVector = multiVectors.TimeVector
+				memory.DomainVector = multiVectors.DomainVector
+				memory.SemanticTags = multiVectors.SemanticTags
+				memory.ConceptEntities = multiVectors.ConceptEntities
+				memory.RelatedConcepts = multiVectors.RelatedConcepts
+				memory.ImportanceScore = multiVectors.ImportanceScore
+				memory.RelevanceScore = multiVectors.RelevanceScore
+				memory.ContextSummary = multiVectors.ContextSummary
+				memory.TechStack = multiVectors.TechStack
+				memory.ProjectContext = multiVectors.ProjectContext
+				memory.EventType = multiVectors.EventType
+
+				log.Printf("[增强向量存储] 多维度向量生成成功:")
+				log.Printf("  语义向量: %d维", len(memory.SemanticVector))
+				log.Printf("  上下文向量: %d维", len(memory.ContextVector))
+				log.Printf("  时间向量: %d维", len(memory.TimeVector))
+				log.Printf("  领域向量: %d维", len(memory.DomainVector))
+			}
+		}
+	}
+
+	// 确保基础向量已生成
+	if memory.Memory.Vector == nil || len(memory.Memory.Vector) == 0 {
+		log.Printf("[增强向量存储] 生成基础向量...")
+		baseVector, err := s.GenerateEmbedding(memory.Memory.Content)
+		if err != nil {
+			return fmt.Errorf("生成基础向量失败: %w", err)
+		}
+		memory.Memory.Vector = baseVector
+		log.Printf("[增强向量存储] 基础向量生成成功: %d维", len(baseVector))
+	}
+
+	// 生成格式化的时间戳
+	formattedTime := time.Unix(memory.Memory.Timestamp, 0).Format("2006-01-02 15:04:05")
+
+	// 处理元数据
+	metadataStr := "{}"
+	var storageId string = memory.Memory.ID
+
+	if memory.Memory.Metadata != nil {
+		if batchId, ok := memory.Memory.Metadata["batchId"].(string); ok && batchId != "" {
+			storageId = batchId
+			log.Printf("[增强向量存储] 使用batchId作为存储ID: %s", storageId)
+		}
+
+		if metadataBytes, err := json.Marshal(memory.Memory.Metadata); err == nil {
+			metadataStr = string(metadataBytes)
+		} else {
+			log.Printf("[增强向量存储] 警告: 无法序列化元数据: %v", err)
+		}
+	}
+
+	// 构建增强文档（包含所有现有字段 + 新增多维度字段）
+	fields := map[string]interface{}{
+		// 现有字段（完全兼容）
+		"session_id":     memory.Memory.SessionID,
+		"content":        memory.Memory.Content,
+		"timestamp":      memory.Memory.Timestamp,
+		"formatted_time": formattedTime,
+		"priority":       memory.Memory.Priority,
+		"metadata":       metadataStr,
+		"memory_id":      memory.Memory.ID,
+		"bizType":        memory.Memory.BizType,
+		"userId":         memory.Memory.UserID,
+
+		// 新增多维度字段
+		"semantic_tags":    memory.SemanticTags,
+		"concept_entities": memory.ConceptEntities,
+		"related_concepts": memory.RelatedConcepts,
+		"importance_score": memory.ImportanceScore,
+		"relevance_score":  memory.RelevanceScore,
+		"context_summary":  memory.ContextSummary,
+		"tech_stack":       memory.TechStack,
+		"project_context":  memory.ProjectContext,
+		"event_type":       memory.EventType,
+	}
+
+	// 添加多维度向量字段（如果存在）
+	if len(memory.SemanticVector) > 0 {
+		fields["semantic_vector"] = memory.SemanticVector
+	}
+	if len(memory.ContextVector) > 0 {
+		fields["context_vector"] = memory.ContextVector
+	}
+	if len(memory.TimeVector) > 0 {
+		fields["time_vector"] = memory.TimeVector
+	}
+	if len(memory.DomainVector) > 0 {
+		fields["domain_vector"] = memory.DomainVector
+	}
+
+	// 添加多维度元数据
+	if memory.MultiDimMetadata != nil {
+		if multiDimBytes, err := json.Marshal(memory.MultiDimMetadata); err == nil {
+			fields["multi_dim_metadata"] = string(multiDimBytes)
+		}
+	}
+
+	// 构建文档
+	doc := map[string]interface{}{
+		"id":     storageId,
+		"vector": memory.Memory.Vector, // 使用基础向量作为主向量
+		"fields": fields,
+	}
+
+	// 构建插入请求
+	insertReq := map[string]interface{}{
+		"docs": []map[string]interface{}{doc},
+	}
+
+	// 序列化请求
+	reqBody, err := json.Marshal(insertReq)
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 序列化插入请求失败: %v", err)
+		return fmt.Errorf("序列化插入请求失败: %w", err)
+	}
+
+	// 创建HTTP请求
+	url := fmt.Sprintf("%s/v1/collections/%s/docs", s.VectorDBURL, s.VectorDBCollection)
+	log.Printf("[增强向量存储] 发送存储请求: %s", url)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 创建HTTP请求失败: %v", err)
+		return fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("dashvector-auth-token", s.VectorDBAPIKey)
+
+	// 发送请求
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 发送HTTP请求失败: %v", err)
+		return fmt.Errorf("发送HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 读取响应失败: %v", err)
+		return fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[增强向量存储] 错误: HTTP状态码 %d, 响应: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("向量存储失败: HTTP %d, %s", resp.StatusCode, string(respBody))
+	}
+
+	// 解析响应
+	var result struct {
+		Code      int    `json:"code"`
+		Message   string `json:"message"`
+		RequestId string `json:"request_id"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		log.Printf("[增强向量存储] 错误: 解析响应失败: %v", err)
+		return fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	// 检查API结果码
+	if result.Code != 0 {
+		return fmt.Errorf("API返回错误: %d, %s", result.Code, result.Message)
+	}
+
+	log.Printf("[增强向量存储] 增强记忆存储成功: ID=%s", memory.Memory.ID)
+
+	// 🔥 TODO: 集成多维度存储引擎
+	// 这里应该调用多维度存储引擎，将数据存储到TimescaleDB和Neo4j
+	// 但目前多维度存储引擎未完全集成，需要后续实现
+	log.Printf("[增强向量存储] ⚠️ 多维度存储引擎集成待实现")
+	log.Printf("[增强向量存储] 当前仅存储到向量数据库，TimescaleDB和Neo4j存储待集成")
+
+	return nil
+}
+
+// StoreEnhancedMessage 存储增强的多维度消息（新增方法）
+func (s *VectorService) StoreEnhancedMessage(message *models.EnhancedMessage) error {
+	log.Printf("\n[增强向量存储] 开始存储增强消息 ============================")
+	log.Printf("[增强向量存储] 消息ID: %s, 会话ID: %s, 角色: %s",
+		message.Message.ID, message.Message.SessionID, message.Message.Role)
+
+	// 首先确保基础向量已生成
+	if message.Message.Vector == nil || len(message.Message.Vector) == 0 {
+		log.Printf("错误: 存储前必须先生成基础向量")
+		return fmt.Errorf("存储前必须先生成基础向量")
+	}
+
+	// 生成格式化的时间戳
+	formattedTime := time.Unix(message.Message.Timestamp, 0).Format("2006-01-02 15:04:05")
+
+	// 处理元数据
+	metadataStr := "{}"
+	if message.Message.Metadata != nil {
+		if metadataBytes, err := json.Marshal(message.Message.Metadata); err == nil {
+			metadataStr = string(metadataBytes)
+		} else {
+			log.Printf("[增强向量存储] 警告: 无法序列化元数据: %v", err)
+		}
+	}
+
+	// 构建增强文档（包含所有现有字段 + 新增多维度字段）
+	fields := map[string]interface{}{
+		// 现有字段（完全兼容）
+		"session_id":     message.Message.SessionID,
+		"content":        message.Message.Content,
+		"timestamp":      message.Message.Timestamp,
+		"formatted_time": formattedTime,
+		"role":           message.Message.Role,
+		"metadata":       metadataStr,
+		"message_id":     message.Message.ID,
+		"userId":         "", // Message模型中没有UserID字段
+
+		// 新增多维度字段
+		"semantic_tags":    message.SemanticTags,
+		"concept_entities": message.ConceptEntities,
+		"related_concepts": message.RelatedConcepts,
+		"importance_score": message.ImportanceScore,
+		"relevance_score":  message.RelevanceScore,
+		"context_summary":  message.ContextSummary,
+		"tech_stack":       message.TechStack,
+		"project_context":  message.ProjectContext,
+		"event_type":       message.EventType,
+	}
+
+	// 添加多维度向量字段（如果存在）
+	if len(message.SemanticVector) > 0 {
+		fields["semantic_vector"] = message.SemanticVector
+	}
+	if len(message.ContextVector) > 0 {
+		fields["context_vector"] = message.ContextVector
+	}
+	if len(message.TimeVector) > 0 {
+		fields["time_vector"] = message.TimeVector
+	}
+	if len(message.DomainVector) > 0 {
+		fields["domain_vector"] = message.DomainVector
+	}
+
+	// 添加多维度元数据
+	if message.MultiDimMetadata != nil {
+		if multiDimBytes, err := json.Marshal(message.MultiDimMetadata); err == nil {
+			fields["multi_dim_metadata"] = string(multiDimBytes)
+		}
+	}
+
+	// 构建文档
+	doc := map[string]interface{}{
+		"id":     message.Message.ID,
+		"vector": message.Message.Vector, // 使用基础向量作为主向量
+		"fields": fields,
+	}
+
+	// 构建插入请求
+	insertReq := map[string]interface{}{
+		"docs": []map[string]interface{}{doc},
+	}
+
+	// 序列化请求
+	reqBody, err := json.Marshal(insertReq)
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 序列化插入请求失败: %v", err)
+		return fmt.Errorf("序列化插入请求失败: %w", err)
+	}
+
+	// 创建HTTP请求
+	url := fmt.Sprintf("%s/v1/collections/%s/docs", s.VectorDBURL, s.VectorDBCollection)
+	log.Printf("[增强向量存储] 发送存储请求: %s", url)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 创建HTTP请求失败: %v", err)
+		return fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("dashvector-auth-token", s.VectorDBAPIKey)
+
+	// 发送请求
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 发送HTTP请求失败: %v", err)
+		return fmt.Errorf("发送HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("[增强向量存储] 错误: 读取响应失败: %v", err)
+		return fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[增强向量存储] 错误: HTTP状态码 %d, 响应: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("向量存储失败: HTTP %d, %s", resp.StatusCode, string(respBody))
+	}
+
+	// 解析响应
+	var result struct {
+		Code      int    `json:"code"`
+		Message   string `json:"message"`
+		RequestId string `json:"request_id"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		log.Printf("[增强向量存储] 错误: 解析响应失败: %v", err)
+		return fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	// 检查API结果码
+	if result.Code != 0 {
+		return fmt.Errorf("API返回错误: %d, %s", result.Code, result.Message)
+	}
+
+	log.Printf("[增强向量存储] 增强消息存储成功: ID=%s", message.Message.ID)
 	return nil
 }
 

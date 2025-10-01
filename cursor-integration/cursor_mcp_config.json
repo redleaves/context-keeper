@@ -38,6 +38,11 @@
       "retryDelay": 1000,
       "backoffMultiplier": 2
     },
+    "timeoutConfig": {
+      "requestTimeout": 120000,
+      "mcpTimeout": 120000,
+      "llmTimeout": 90000
+    },
     "logging": {
       "level": "info",
       "logToFile": true

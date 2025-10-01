@@ -3,307 +3,300 @@ description:
 globs: 
 alwaysApply: true
 ---
-# 🔄 Context-Keeper 自动验证流程规则
+# 🧠 高效编程执行规则 - Context-Keeper
 
-## 🌟 核心原则
+## 🎯 编程执行金字塔原则（执行编码之前一定要用户确认！！！）
 
-> **服务端代码修改后，AI Agent 必须自动完成完整的验证流程**
-
-任何涉及服务端代码修改的操作，都必须自动执行编译→启动→验证的完整流程，确保代码变更的正确性和系统稳定性。
-
-## 🎯 智能触发机制
-
-### 自动触发条件（MUST TRIGGER）
-当满足以下任一条件时，**必须**自动执行完整验证流程：
-
-**代码文件修改类**：
 ```
-✅ 服务端Go代码修改: internal/, cmd/, pkg/ 目录下的 .go 文件
-✅ API接口变更: handlers.go, websocket_handler.go 等
-✅ 服务配置修改: main_*.go, config相关文件
-✅ 路由注册变更: RegisterRoutes, RegisterWebSocketRoutes 等
-✅ MCP工具实现: 任何MCP tool相关的处理函数
+                      🔧 执行编码
+                     /            \
+                ✅ 用户确认      🧪 完整验证
+               /                            \
+          📋 详细设计                    📊 质量保障
+         /                                        \
+    🤔 理清思路                            🚀 高效迭代
+   /                                              \
+🗂️ 业务逻辑链路                        
+/                                                
+📈 依赖关系分析                          
 ```
 
-**功能实现类**：
+**正确的执行顺序：**
 ```
-✅ 新增MCP工具
-✅ WebSocket连接逻辑修改
-✅ Session管理功能变更
-✅ 数据库/存储相关修改
-✅ 错误处理逻辑调整
+📈 依赖关系分析 → 🗂️ 业务逻辑链路 → 🤔 理清思路 → 📋 详细设计 
+→ ✅ 用户确认 → 🔧 执行编码 → 🧪 完整验证 → 📊 质量保障 → 🚀 高效迭代
 ```
 
-**架构变更类**：
+### 🌟 **核心原则 - MANDATORY**
+
+1. **🧠 思考先行 - THINK FIRST, CODE LATER**
+   - 任何编码前必须完整理清思路
+   - 分析业务逻辑链路、依赖关系、层次脉络
+   - 一次性设计完整，避免反复修改删除
+
+2. **🤝 用户确认 - USER AUTHORIZATION REQUIRED**
+   - **关键时机**：详细设计完成后，执行编码前（必须！）
+   - **确认内容**：技术方案、修改范围、风险评估、执行计划
+   - **沟通原则**：用户反馈问题时先定位分析，达成一致得到用户授权后再编码
+   - **严禁行为**：未经用户授权直接修改任何代码或配置
+
+3. **🎯 质量优先 - QUALITY & EFFICIENCY**
+   - 完整验证流程确保代码质量
+   - 避免编译错误导致的冲动乱改
+   - 系统性思考，通篇考虑，精准修改
+
+---
+
+## 🔄 **高效编程执行流程 - 5阶段法**
+
+### 🧩 **阶段1：问题分析与思路梳理 - ANALYSIS PHASE**
+
+**🔍 当用户提出问题/需求时，必须先完成：**
+
+1. **问题定位分析**
+   ```
+   📌 具体问题是什么？
+   📌 涉及哪些代码模块？
+   📌 影响范围有多大？
+   📌 根本原因是什么？
+   ```
+
+2. **依赖关系梳理**
+   ```
+   🔗 上游依赖：哪些模块会影响当前问题？
+   🔗 下游影响：修改会影响哪些功能？
+   🔗 横向关联：同层级有哪些相关组件？
+   🔗 配置依赖：需要哪些配置支持？
+   ```
+
+3. **业务逻辑链路分析**
+   ```
+   ➡️ 数据流向：从输入到输出的完整路径
+   ➡️ 调用链路：函数/服务间的调用关系
+   ➡️ 状态变化：系统状态如何流转
+   ➡️ 错误处理：异常情况的处理路径
+   ```
+
+### 📋 **阶段2：详细设计方案 - DESIGN PHASE**
+
+**🎨 输出完整的技术设计方案：**
+
+1. **修改范围说明**
+   ```
+   📁 涉及文件：明确列出所有需要修改的文件
+   🔧 修改类型：新增/修改/删除/重构
+   ⏱️ 预估工作量：每个修改点的复杂度评估
+   ```
+
+2. **技术实现方案**
+   ```
+   🏗️ 架构调整：如何调整现有架构
+   💡 算法逻辑：核心算法的详细描述
+   🔌 接口设计：API/接口的变更说明
+   📊 数据结构：数据模型的变化
+   ```
+
+3. **风险评估**
+   ```
+   ⚠️ 潜在风险：可能出现的问题
+   🛡️ 风险缓解：如何避免/处理风险
+   🔄 回滚方案：出现问题时的回退策略
+   ```
+
+### ✅ **阶段3：用户确认授权 - AUTHORIZATION PHASE**
+
+**🤝 用户确认检查清单：**
+
 ```
-✅ 服务启动流程修改
-✅ 中间件变更
-✅ 服务间通信调整
-✅ 协议实现变更
+□ 问题分析是否准确？
+□ 技术方案是否合理？
+□ 修改范围是否可接受？
+□ 是否有更好的替代方案？
+□ 风险评估是否充分？
+□ 是否授权开始编码？
 ```
 
-## 🚀 完整验证流程（MANDATORY EXECUTION）
+**❌ 禁止行为 - NEVER DO:**
+- ❌ 用户提出问题后立即开始修改代码（必须先分析设计）
+- ❌ 设计方案完成后直接编码（必须先获得用户确认授权）
+- ❌ 看到编译错误就马上修改而不分析原因
+- ❌ 用户反馈疑问后不沟通就自行修改程序
+- ❌ 一边改代码一边想方案（边做边想的低效模式）
 
-### 第一阶段：预检查 (Pre-Check)
+### 🔧 **阶段4：精准编码执行 - IMPLEMENTATION PHASE**
+
+**⚡ 一气呵成的编码要求：**
+
+1. **编码前最后检查**
+   ```
+   🎯 确认设计方案无误
+   🎯 确认修改顺序合理
+   🎯 确认所有依赖就绪
+   ```
+
+2. **编码执行原则**
+   ```
+   📝 按设计方案严格执行
+   📝 一次性完成所有相关修改
+   📝 保持代码风格一致性
+   📝 添加必要的注释说明
+   ```
+
+3. **修改顺序策略**
+   ```
+   🔢 先修改底层依赖
+   🔢 再修改业务逻辑
+   🔢 最后修改对外接口
+   🔢 配置文件统一处理
+   ```
+
+### 🧪 **阶段5：完整验证测试 - VERIFICATION PHASE**
+
+**🔍 系统性验证流程：**
+
+1. **编译验证**
+   ```bash
+   # 检查语法错误
+   go build ./...
+   # 检查依赖问题
+   go mod tidy && go mod verify
+   ```
+
+2. **功能验证**
+   ```bash
+   # 重启服务
+   ./scripts/manage.sh deploy http --port 8088
+   # 健康检查
+   curl http://localhost:8088/health
+   # 核心功能测试
+   [执行相关功能测试]
+   ```
+
+3. **回归验证**
+   ```bash
+   # 确保原有功能正常
+   [执行回归测试用例]
+   # 性能检查
+   [执行性能基准测试]
+   ```
+
+---
+
+## 🚨 **强制执行规则 - ENFORCEMENT**
+
+### 🔒 **MUST DO (必须遵守)**
+1. **阶段1-2必须100%完成才能进入阶段3（用户确认）**
+2. **阶段3用户确认必须获得明确授权才能进入阶段4（编码）**
+3. **任何代码/配置修改都必须经过：分析→设计→用户确认→编码**
+4. **编译错误时必须先分析全局再定点修复**
+5. **完成编码后必须执行完整验证流程**
+
+### ⚡ **EFFICIENCY BOOSTERS (效率提升)**
+1. **一次性设计完整避免反复修改**
+2. **并行思考多个相关问题**
+3. **批量处理相似类型的修改**
+4. **复用已验证的设计模式**
+
+### 🚫 **NEVER DO (严禁操作)**
+1. **禁止未经思考的冲动编码**
+2. **禁止边改边想的低效模式**
+3. **禁止跳过用户确认环节（详细设计后必须确认！）**
+4. **禁止未经用户授权直接执行任何代码修改**
+5. **禁止忽略验证测试步骤**
+
+---
+
+## 🔄 **实际应用示例 - 问题解决流程演示**
+
+### 📝 **示例：修复SynthesizedContext和VectorService的nil问题**
+
+**阶段1：问题分析** ✅
+```
+🔍 问题定位：
+- SynthesizedContext字段永远为nil，LLM价值链断裂
+- VectorService在创建时为nil，缺少真实服务注入
+
+🔗 依赖分析：
+- SynthesizedContext影响内容合成引擎的输出完整性
+- VectorService影响多维度检索的向量搜索能力
+
+➡️ 调用链路：
+- buildSynthesizedContextModel函数调用时机问题
+- initMultiDimensionalStorageEngine缺少vectorService参数传递
+```
+
+**阶段2：设计方案** ✅
+```
+📁 修改文件：
+- internal/engines/content_synthesis_engine.go
+- cmd/server/main.go
+
+🏗️ 技术方案：
+1. 重构buildSynthesizedContextModel，接收evaluationResult而非synthesisResp
+2. 修改initMultiDimensionalStorageEngine函数签名，添加vectorService参数
+3. 确保vectorAdapter使用真实的vectorService实例
+
+⚠️ 风险评估：
+- 函数签名变更需要调用点同步修改
+- UnifiedContextModel结构复杂，需要合理映射
+```
+
+**阶段3：用户确认** ⏳
+```
+□ 问题分析是否准确？
+□ 技术方案是否合理？
+□ 修改范围是否可接受？
+□ 是否有更好的替代方案？
+□ 风险评估是否充分？
+□ 是否授权开始编码？
+```
+
+**阶段4：等待用户授权** 🚫
+> **当前状态：等待用户确认上述分析和设计方案**
+> **禁止未经授权直接修改代码**
+
+---
+
+## 🎯 **自动验证触发机制**
+
+### **验证触发条件**
 ```bash
-# 1. 检查代码编译状态
-if (代码修改完成 && 无语法错误) {
-  进入编译阶段
-} else {
-  停止流程，报告编译错误
-}
+✅ Go代码修改: internal/, cmd/, pkg/ 目录
+✅ 配置文件变更: config/, *.yaml, *.json
+✅ API/接口变更: 路由、处理函数修改
+✅ 核心功能修改: MCP工具、WebSocket、Session管理
 ```
 
-### 第二阶段：服务重启 (Service Restart)
-**执行顺序（严格按序）**：
+### **3阶段验证流程**
 
-1. **停止现有服务**
-```bash
-./scripts/manage.sh stop
-# 或者 pkill -f context-keeper (兜底方案)
+1. **编译验证** → `go build ./...`
+2. **服务重启** → `./scripts/manage.sh deploy http --port 8088`
+3. **功能验证** → `curl http://localhost:8088/health` + 核心功能测试
+
+### **验证报告模板**
 ```
-
-2. **编译新版本**
-```bash
-# HTTP服务编译
-go build -o bin/context-keeper-http cmd/server/main.go cmd/server/main_http.go
-
-3. **启动服务**
-```bash
-# 使用脚本启动HTTP服务
-./scripts/manage.sh deploy http --port 8088
-
-4. **等待服务就绪**
-```bash
-sleep 3
-# 检查进程状态
-ps aux | grep context-keeper | grep -v grep
-```
-
-### 第三阶段：基础验证 (Basic Verification)
-**必须全部通过，任一失败则报告问题**：
-
-1. **服务可用性检查**
-```bash
-# HTTP服务健康检查
-curl http://localhost:8088/health
-# 期望: {"mode":"streamable-http","status":"healthy",...}
-
-2. **端口监听验证**
-```bash
-netstat -an | grep LISTEN | grep -E '8088'
-```
-
-
-### 第四阶段：功能回归验证 (Regression Testing)
-**核心功能验证（必须全部通过）**：
-
-1. **MCP协议基础功能**
-```bash
-# Session管理验证
-curl -X POST http://localhost:8088/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"session_management","arguments":{"action":"get_or_create"}}}'
-# 期望: 返回成功的session创建响应
-```
-
-2. **WebSocket连接功能**
-```bash
-# WebSocket状态检查
-curl http://localhost:8088/ws/status
-# 期望: {"status":"success",...}
-
-# Session注册端点验证
-curl -X POST "http://localhost:8088/api/ws/register-session" \
-  -H "Content-Type: application/json" \
-  -d '{"sessionId":"test-session-123","connectionId":"test-connection-456"}'
-# 期望: {"status":"success","message":"会话注册成功",...}
-```
-
-3. **关键MCP工具验证**
-```bash
-# associate_file工具测试
-curl -X POST http://localhost:8088/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"associate_file","arguments":{"sessionId":"test-session","filePath":"test.go"}}}'
-
-# retrieve_context工具测试
-curl -X POST http://localhost:8088/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"retrieve_context","arguments":{"sessionId":"test-session","query":"test"}}}'
-```
-
-### 第五阶段：新功能验证 (New Feature Testing)
-**根据修改内容进行针对性验证**：
-
-**如果修改了WebSocket相关代码**：
-```javascript
-// 运行WebSocket测试客户端
-node websocket_test_client.js
-// 期望: WebSocket连接建立成功，Session映射正常
-```
-
-**如果修改了Session管理**：
-```javascript  
-// 运行Session状态检查
-node session_status_check.js
-// 期望: 所有Session状态检查通过
-```
-
-**如果新增了MCP工具**：
-```bash
-# 测试新工具的基础调用
-curl -X POST http://localhost:8088/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"新工具名称","arguments":{...}}}'
-```
-
-**如果修改了路由**：
-```bash
-# 验证新路由可访问
-curl http://localhost:8088/新路由路径
-# 验证原有路由仍然工作
-curl http://localhost:8088/health
-```
-
-## 🤖 智能执行策略
-
-### 执行时机判断
-```
-📝 代码编辑完成后 → 立即检查是否需要验证
-⚡ 检测到服务端文件修改 → 自动标记需要验证  
-🔍 用户请求验证时 → 立即执行完整流程
-🚨 测试失败时 → 报告问题并建议修复
-```
-
-### 并行vs串行执行
-```
-🔄 串行执行: 停止→编译→启动→验证 (必须按序)
-⚡ 并行验证: 基础验证和功能验证可以并行进行
-🎯 智能跳过: 如果只修改了文档或配置，跳过某些验证步骤
-```
-
-### 错误处理策略
-```
-🛡️ 编译失败 → 停止流程，报告编译错误，不启动服务
-🛡️ 启动失败 → 检查端口占用，尝试重新启动，查看日志
-🛡️ 验证失败 → 详细报告失败的验证点，提供修复建议
-🛡️ 部分失败 → 标记问题区域，允许继续其他验证
-```
-
-## 📊 验证报告格式
-
-### 成功报告模板
-```
-🎉 **验证完成！所有检查通过**
-
-## 📋 执行摘要
-- ✅ 服务重启: 成功
-- ✅ 基础验证: 通过 (3/3)
-- ✅ 回归验证: 通过 (5/5) 
-- ✅ 新功能验证: 通过 (2/2)
-
-## 🔧 服务状态
-- HTTP服务: 运行正常 (PID: 12345, 端口: 8088)
-- WebSocket服务: 运行正常 (PID: 12346, 端口: 7890)
-
-## 🚀 可以继续开发新功能！
-```
-
-### 失败报告模板
-```
-⚠️ **验证发现问题**
-
-## 🚨 失败项目
-- ❌ WebSocket连接测试: 连接超时
-  - 问题: WebSocket服务未能在7890端口启动
-  - 建议: 检查端口占用，查看日志文件
-
-## ✅ 通过项目  
-- ✅ HTTP服务启动: 正常
-- ✅ 基础API测试: 通过
-
-## 🔧 修复建议
-1. 检查WebSocket服务配置
-2. 查看 logs/context-keeper-websocket.log
-3. 修复后重新运行验证
-```
-
-## 🎯 具体执行命令模板
-
-### 完整验证脚本（推荐使用）
-```bash
-# 一键验证脚本
-echo "🔄 开始自动验证流程..."
-
-# 1. 停止服务
-echo "⏹️ 停止现有服务..."
-./scripts/manage.sh stop
-
-# 2. 编译服务
-echo "🔨 编译服务..."
-go build -o bin/context-keeper-http cmd/server/main.go cmd/server/main_http.go
-# 3. 启动服务
-echo "🚀 启动服务..."
-./scripts/manage.sh deploy http --port 8088
-
-# 4. 等待服务就绪
-echo "⏱️ 等待服务就绪..."
-sleep 3
-
-# 5. 基础验证
-echo "🔍 基础验证..."
-curl -s http://localhost:8088/health | grep "healthy" || echo "❌ HTTP服务验证失败"
-# 6. 功能验证
-echo "🧪 功能验证..."
-node session_status_check.js
-node websocket_test_client.js
-
-echo "✅ 验证流程完成！"
-```
-
-## 🎪 特殊场景处理
-
-### 仅修改配置文件
-```
-修改内容: 配置参数调整
-验证范围: 基础验证 + 配置相关功能测试
-跳过内容: 复杂的功能回归测试
-```
-
-### 紧急修复
-```
-修改内容: 关键Bug修复
-验证范围: 完整验证 + 额外的稳定性测试  
-优先级: 最高，必须100%通过
-```
-
-### 实验性功能
-```
-修改内容: 新功能开发
-验证范围: 完整验证 + 新功能专项测试
-容错策略: 新功能可以部分失败，但不能影响原有功能
+🎉 验证完成！
+✅ 编译: 成功
+✅ 启动: 成功 (PID: 12345)
+✅ 健康检查: 通过
+✅ 核心功能: 通过 (3/3)
+🚀 可以继续开发！
 ```
 
 ---
 
-## 🔥 执行强制规则
+## 💡 **高效编程最佳实践总结**
 
-### MUST DO (必须执行)
-1. **任何服务端Go代码修改后，必须执行完整验证流程**
-2. **验证失败时，必须报告具体问题和修复建议**  
-3. **验证通过后，必须提供清晰的状态报告**
+### 🎯 **效率提升关键点**
+1. **思考投资回报比**: 花30分钟思考 > 花3小时反复修改
+2. **设计驱动编码**: 清晰设计 → 精准实现 → 一次成功
+3. **用户协作模式**: 频繁确认 → 避免返工 → 提升信任
+4. **系统性验证**: 完整测试 → 预防问题 → 稳定交付
 
-### SHOULD DO (应该执行)
-1. **优先使用脚本管理服务生命周期**
-2. **验证过程中提供详细的进度反馈**
-3. **保存验证日志供后续分析**
+### ⚡ **执行效率公式**
+```
+高效编程 = (深度思考 × 用户确认 × 精准实现) ÷ 返工次数
+```
 
-### MUST NOT DO (禁止操作)
-1. **禁止跳过基础验证步骤**
-2. **禁止在验证失败时继续开发新功能**  
-3. **禁止忽略服务启动失败**
-
----
-
-> **记住**: 完善的验证流程是代码质量的保障，每次修改后的自动验证不是负担，而是让开发更加自信和高效的利器！
+### 🔥 **终极目标**
+> **一次设计正确 → 一次编码成功 → 一次验证通过 → 高质量交付**

@@ -30,6 +30,9 @@ type RetrieveContextRequest struct {
 	BatchID       string `json:"batchId,omitempty"`       // 新增：通过批次ID检索
 	SkipThreshold bool   `json:"skipThreshold,omitempty"` // 新增：是否跳过相似度阈值过滤
 	IsBruteSearch int    `json:"isBruteSearch,omitempty"` // 新增：是否启用暴力搜索（用于索引未训练的情况）
+
+	// 🆕 工程感知相关字段
+	ProjectAnalysis string `json:"projectAnalysis,omitempty"` // 工程分析结果（供检索使用）
 }
 
 // ContextResponse 上下文响应
@@ -105,9 +108,20 @@ type StoreMessagesRequest struct {
 
 // StoreMessagesResponse 存储对话消息响应
 type StoreMessagesResponse struct {
-	MessageIDs []string `json:"messageIds,omitempty"`
-	MemoryID   string   `json:"memoryId,omitempty"` // 如果summarizeAndStore为true，返回的记忆ID
-	Status     string   `json:"status"`
+	MessageIDs []string               `json:"messageIds,omitempty"`
+	MemoryID   string                 `json:"memoryId,omitempty"` // 如果summarizeAndStore为true，返回的记忆ID
+	Status     string                 `json:"status"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"` // LLM驱动的智能分析结果
+}
+
+// StoreContextResponse 存储上下文响应（扩展版本）
+type StoreContextResponse struct {
+	MemoryID        string                 `json:"memoryId"`                  // 记忆ID（向后兼容）
+	Status          string                 `json:"status"`                    // 状态（向后兼容）
+	AnalysisResult  *SmartAnalysisResult   `json:"analysisResult,omitempty"`  // 🆕 完整的LLM分析结果
+	StorageStrategy string                 `json:"storageStrategy,omitempty"` // 🆕 存储策略
+	Confidence      float64                `json:"confidence,omitempty"`      // 🆕 置信度
+	Metadata        map[string]interface{} `json:"metadata,omitempty"`        // 其他元数据
 }
 
 // RetrieveConversationRequest 检索对话请求
@@ -147,13 +161,16 @@ type Memory struct {
 	ID        string                 `json:"id"`
 	SessionID string                 `json:"session_id"`
 	Content   string                 `json:"content"`
-	Vector    []float32              `json:"vector,omitempty"`
+	Vector    []float32              `json:"vector,omitempty"` // 保留原有向量字段（兼容性）
 	Timestamp int64                  `json:"timestamp"`
 	Priority  string                 `json:"priority"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 	// 新增字段，用于单独存储业务类型和用户ID
 	BizType int    `json:"bizType,omitempty"`
 	UserID  string `json:"userId,omitempty"`
+
+	// 🆕 新增多向量字段
+	MultiVectorData *MultiVectorData `json:"multi_vector_data,omitempty"`
 }
 
 // NewMemory 创建新的记忆实体
@@ -631,4 +648,22 @@ type UserRepository interface {
 
 	// InitRepository 初始化存储库（如创建表、集合等）
 	InitRepository() error
+}
+
+// DimensionalVector 多维度向量
+type DimensionalVector struct {
+	Dimension string    `json:"dimension"` // 维度名称：content, semantic_tags, context_summary等
+	Vector    []float32 `json:"vector"`    // 向量数据
+	Source    string    `json:"source"`    // 向量来源文本
+	Weight    float64   `json:"weight"`    // 权重
+}
+
+// MultiDimensionalVectorData 多维度向量数据
+type MultiDimensionalVectorData struct {
+	MemoryID  string                 `json:"memory_id"`
+	SessionID string                 `json:"session_id"`
+	UserID    string                 `json:"user_id"`
+	Vectors   []DimensionalVector    `json:"vectors"`
+	CreatedAt time.Time              `json:"created_at"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }

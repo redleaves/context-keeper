@@ -223,11 +223,26 @@ func (sh *StreamableHTTPHandler) handleToolsCall(ctx context.Context, params map
 
 	log.Printf("[Streamable HTTP] 调用工具: %s, 参数: %+v", toolName, arguments)
 
+	// 🔥 统一拦截器：既修改 arguments 又注入 context
+	var enrichedCtx context.Context = ctx
+	cfg := BuildSessionContextConfigFromEnv()
+	log.Printf("🔍 [拦截器调试] 环境变量INTERCEPT_MCP_TOOLS读取结果: %+v", cfg)
+	if cfg != nil && cfg.ShouldInterceptMCP(toolName) {
+		log.Printf("🎯 [拦截器调试] 工具 %s 命中拦截条件", toolName)
+		if sid, ok := arguments["sessionId"].(string); ok && sid != "" {
+			cs := sh.handler.GetContextService()
+
+			// 🔥 统一拦截器：只注入 context，不修改 params
+			enrichedCtx = InjectSessionContext(ctx, cs, sid)
+			log.Printf("🔧 [统一拦截器] 成功注入会话上下文信息到 context，工具: %s", toolName)
+		}
+	}
+
 	// 记录调用开始时间
 	startTime := time.Now()
 
-	// 调用工具
-	result, err := sh.handler.dispatchToolCall(toolName, arguments)
+	// 🔥 关键：调用支持上下文的分发器，传递enrichedCtx
+	result, err := sh.handler.dispatchToolCallWithContext(enrichedCtx, toolName, arguments)
 
 	// 记录调用耗时
 	duration := time.Since(startTime)
@@ -316,6 +331,10 @@ func (sh *StreamableHTTPHandler) getToolsDefinition() []map[string]interface{} {
 					"query": map[string]interface{}{
 						"type":        "string",
 						"description": "查询内容",
+					},
+					"projectAnalysis": map[string]interface{}{
+						"type":        "string",
+						"description": "工程分析结果（可选，用于检索增强）",
 					},
 				},
 				"required": []string{"sessionId", "query"},

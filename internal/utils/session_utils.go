@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/contextkeeper/service/internal/models"
@@ -121,4 +122,26 @@ func GetWorkspaceSessionID(
 
 	log.Printf("🔍 [会话工具] === GetWorkspaceSessionID完成 ===")
 	return session, isNewSession, nil
+}
+
+// ExtractWorkspaceNameFromPath 从完整路径提取工作空间名称
+// 🔥 这是所有服务共用的工具函数，避免重复定义
+func ExtractWorkspaceNameFromPath(workspacePath string) string {
+	if workspacePath == "" {
+		return ""
+	}
+
+	// 🔥 从完整路径中提取最后一级目录名作为工作空间名
+	if strings.Contains(workspacePath, "/") {
+		parts := strings.Split(workspacePath, "/")
+		workspaceName := parts[len(parts)-1]
+		if workspaceName != "" {
+			log.Printf("🔧 [工作空间名提取] 从路径 %s 提取工作空间名: %s", workspacePath, workspaceName)
+			return workspaceName
+		}
+	}
+
+	// 如果路径不包含/，直接返回原路径
+	log.Printf("🔧 [工作空间名提取] 路径不包含分隔符，直接使用: %s", workspacePath)
+	return workspacePath
 }

@@ -606,9 +606,9 @@ func (h *Handler) processMCPToolRequest(ctx context.Context, request models.MCPR
 
 	log.Printf("调用工具: %s, 参数: %+v", toolName, arguments)
 
-	// 直接复用handlers.go中的dispatchToolCall函数处理业务逻辑
+	// 🔥 使用支持上下文的分发器，传递请求上下文
 	// 这确保SSE和STDIO模式使用完全相同的业务实现
-	return h.dispatchToolCall(toolName, arguments)
+	return h.dispatchToolCallWithContext(ctx, toolName, arguments)
 }
 
 // generateRandomID 生成随机ID

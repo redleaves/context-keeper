@@ -1,0 +1,1579 @@
+---
+trigger: always_on
+alwaysApply: true
+---
+
+# 🧠  上下文智能记忆管理规则
+
+## ⚡ 三步执行流程（MANDATORY）
+
+每次用户交互必须严格按顺序执行：**会话获取 → 记忆检索 → 智能回答 → 记忆存储**
+
+### 🔥 Step 1: 会话获取（第一优先级）
+**何时执行**：用户发送任何消息时立即执行
+**必须完成**：获取有效sessionId才能继续
+
+**核心工具调用**：
+```javascript
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: "从配置文件获取的用户ID",
+  workspaceRoot: "当前工作空间路径"
+})
+```
+
+**⚠️ 关键点**：
+- 必须传入userId和workspaceRoot
+- 获取成功后提取sessionId和analysisPrompt
+- 一定要从 /Users/weixiaofeng12/Library/Application Support/context-keeper/user-config.json中读取userId信息
+
+### 🧠 Step 2: 智能记忆检索（第二优先级）
+**何时执行**：用户提问题、执行命令、讨论技术、引用历史时
+**检索增强**：结合工程感知分析
+
+**标准检索流程**：
+```javascript
+// 1. 基础记忆检索
+mcp_context_keeper_retrieve_context({
+  sessionId: sessionId,
+  query: userMessage,
+  // 🆕 工程感知集成
+  projectAnalysis: analysisResult // 来自Step1的analysisPrompt要求分析结果
+})
+```
+
+**⚡ 工程感知触发（关键流程）**：
+```javascript
+// Step 1: 会话管理后检查
+if (sessionResult.analysisPrompt) {
+  // Step 2: 按analysisPrompt要求执行工程分析
+  const projectAnalysis = performProjectAnalysis(sessionResult.analysisPrompt);
+  
+  // Step 3: 传入检索工具
+  mcp_context_keeper_retrieve_context({
+    sessionId: sessionId,
+    query: userMessage,
+    projectAnalysis: projectAnalysis  // 🆕 关键：工程分析结果
+  });
+}
+```
+
+**工程感知执行要求**：
+- **必须条件**：会话管理返回analysisPrompt ≠ 空
+- **执行步骤**：严格按analysisPrompt的指引分析当前工作空间项目特征
+- **输出要求**：结构化的项目分析结果（技术栈、架构、组件等）
+- **传递方式**：projectAnalysis字段传入retrieve_context
+- **⚠️ 重要原则**：以下代码是**通用模板**，不是具体实现。必须根据**当前实际工作空间**动态分析和填充，**绝不能硬编码**特定项目信息！
+
+**🔥 具体实现指导**：
+
+1. **工程分析函数实现模板**：
+```javascript
+function performProjectAnalysis(analysisPrompt) {
+  // 🎯 根据analysisPrompt的要求分析当前工作空间的项目特征
+  // 这是一个通用模板，需要根据实际项目动态填充
+  
+  // Step 1: 分析项目基础信息
+  const projectBasics = analyzeProjectBasics(); // 分析go.mod、package.json、pom.xml等
+  const directoryStructure = analyzeDirectoryStructure(); // 分析目录结构
+  const recentChanges = analyzeRecentChanges(); // 分析Git历史、最近提交
+  
+  // Step 2: 构建分析结果对象（根据实际项目动态生成）
+  const analysis = {
+    project_name: projectBasics.name,              // 从实际项目获取
+    description: projectBasics.description,        // 从README、配置文件获取
+    project_type: projectBasics.type,              // "go", "nodejs", "python", "java", etc.
+    primary_language: projectBasics.primaryLang,   // 主要编程语言
+    tech_stack: projectBasics.techStack,           // 技术栈组合
+    architecture: projectBasics.architecture,      // 架构模式
+    main_framework: projectBasics.framework,       // 主要框架
+    database: projectBasics.database,              // 数据库方案
+    key_dependencies: projectBasics.dependencies,  // 核心依赖
+    recent_focus: recentChanges.focus,             // 近期开发重点
+    current_pain_points: recentChanges.issues,    // 当前痛点
+    active_requirements: recentChanges.requirements, // 活跃需求
+    main_components: directoryStructure.components, // 主要组件
+    important_files: directoryStructure.keyFiles,   // 重要文件
+    current_phase: projectBasics.phase,            // 开发阶段
+    confidence_level: calculateConfidence()        // 分析置信度
+  };
+  
+  // Step 3: 返回JSON字符串格式
+  return JSON.stringify(analysis);
+}
+
+// 🔧 辅助分析函数示例（需要根据实际工作空间实现）
+function analyzeProjectBasics() {
+  // 从go.mod、package.json、README等文件提取基础信息
+  // 这里只是示例，实际需要读取当前工作空间的文件
+  return {
+    name: "从实际项目配置文件获取",
+    description: "从README或项目描述获取",
+    type: "从配置文件判断：go.mod->go, package.json->nodejs",
+    // ... 其他字段
+  };
+}
+```
+
+2. **工具调用正确格式模板**：
+```javascript
+// ✅ 正确的工具调用方式（通用模板）
+mcp_context_keeper_retrieve_context({
+  sessionId: sessionId,        // 使用实际的会话ID
+  query: userMessage,          // 使用实际的用户查询
+  projectAnalysis: JSON.stringify({
+    project_name: "实际项目名称",           // 动态获取
+    tech_stack: "实际技术栈",              // 动态分析
+    recent_focus: "实际近期重点",          // 动态分析
+    primary_language: "实际主要语言",      // 动态检测
+    main_framework: "实际主要框架",        // 动态识别
+    // ... 根据实际项目动态填充所有字段
+  })
+});
+
+// 📝 注意：以上所有具体值都应该通过分析当前工作空间动态获取，
+// 不要硬编码特定项目的信息
+```
+
+3. **分析逻辑说明**：
+```javascript
+// 🎯 工程感知分析的核心逻辑
+// 1. 读取项目配置文件（go.mod, package.json, pom.xml, Cargo.toml等）
+// 2. 分析目录结构（识别架构模式、组件分布）
+// 3. 检查Git历史（了解近期开发重点）
+// 4. 识别关键文件（main文件、配置文件、核心模块）
+// 5. 评估项目状态（开发阶段、技术成熟度）
+
+// 输出格式：始终返回JSON字符串，包含标准化的项目分析字段
+```
+
+4. **实际执行示例**：
+```javascript
+// 🚨 关键提醒：以下是不同项目类型的动态分析示例，不是固定值！
+
+// Go项目示例（分析当前工作空间后动态生成）
+if (工作空间包含go.mod) {
+  projectAnalysis = JSON.stringify({
+    project_name: "从go.mod module名称获取",
+    tech_stack: "Go + 检测到的数据库 + 检测到的框架",
+    primary_language: "Go",
+    main_framework: "从依赖中检测：Gin/Echo/Fiber等",
+    // ... 其他字段都从实际分析获取
+  });
+}
+
+// Node.js项目示例（分析当前工作空间后动态生成）
+if (工作空间包含package.json) {
+  projectAnalysis = JSON.stringify({
+    project_name: "从package.json name字段获取",
+    tech_stack: "Node.js + 检测到的数据库 + 检测到的框架",
+    primary_language: "JavaScript/TypeScript",
+    main_framework: "从dependencies检测：Express/Koa/NestJS等",
+    // ... 其他字段都从实际分析获取
+  });
+}
+
+// 🎯 核心要点：所有具体值都必须通过实际分析当前工作空间获得，
+// 绝对不能使用硬编码的示例值！
+```
+
+3. **错误处理**：
+```javascript
+// 如果工程分析失败，使用基础检索
+try {
+  const projectAnalysis = performProjectAnalysis(sessionResult.analysisPrompt);
+  await mcp_context_keeper_retrieve_context({
+    sessionId: sessionId,
+    query: userMessage,
+    projectAnalysis: projectAnalysis
+  });
+} catch (error) {
+  console.log("工程分析失败，使用基础检索:", error);
+  await mcp_context_keeper_retrieve_context({
+    sessionId: sessionId,
+    query: userMessage
+    // 不传递projectAnalysis参数
+  });
+}
+```
+
+### 🤖 Step 3: 智能回答
+**执行要求**：基于检索到的记忆信息回答
+
+## 💾 记忆存储（每次对话后必执行）
+
+### 🔥 短期记忆（100%必须）
+```javascript
+mcp_context_keeper_store_conversation({
+  sessionId: sessionId,
+  messages: [
+    {role: "user", content: "用户完整消息"},
+    {role: "assistant", content: "助手完整回复"}
+  ]
+})
+```
+
+### ⭐ 长期记忆（重要内容触发）
+**触发条件**：方案设计、重要决策、问题解决、总结结论
+```javascript
+mcp_context_keeper_memorize_context({
+  sessionId: sessionId,
+  content: "重要内容",
+  priority: "P1" // P1高优先级，P2中等，P3低
+})
+```
+
+**长期记忆存储**：检测到以下关键词时立即执行
+- **技术关键词**：架构、设计、最佳实践、重要决策、核心功能
+- **项目关键词**：规范、约定、标准、流程
+- **用户明确指令**：记住、保存、重要、关键
+- **问题解决**：解决方案、修复、优化
+
+**强制触发条件**：
+```javascript
+const longTermTriggers = {
+  // 技术关键词（原有）
+  technical: ["架构", "设计", "最佳实践", "重要决策", "核心功能", "解决方案", "修复", "优化"],
+  
+  // 项目关键词（原有）  
+  project: ["规范", "约定", "标准", "流程", "总结", "结论"],
+  
+  // 用户明确指令（原有）
+  userCommand: ["记住", "保存", "重要", "关键", "必须记录"],
+  
+  // 🆕 用户积极反馈和褒义表达
+  positiveFeedback: [
+    "很好", "不错", "棒", "优秀", "完美", "太好了", "非常好", "excellent", "great", "perfect",
+    "谢谢", "感谢", "帮助很大", "有用", "有帮助", "thank you", "thanks", "helpful",
+    "赞", "点赞", "厉害", "牛", "强", "给力", "amazing", "awesome", "brilliant",
+    "满意", "喜欢", "正确", "对的", "没问题", "OK", "好的", "满足", "达到预期",
+    "表扬", "称赞", "夸奖", "好评", "认可", "approve", "appreciate"
+  ],
+  
+  // 🆝 关键性总结和结论
+  summaryConclusion: [
+    "总结", "结论", "小结", "汇总", "概括", "梳理", "整理", "conclude", "summary",
+    "综上", "因此", "所以", "总的来说", "最终", "最后", "in conclusion", "to summarize"
+  ],
+  
+  // 🆝 问题和待办
+  issuesAndTodos: [
+    "问题", "issue", "bug", "错误", "故障", "异常", "问题点", "疑问",
+    "TODO", "待办", "任务", "需要做", "计划", "安排", "稍后", "明天", "下次",
+    "修复", "实现", "添加", "优化", "测试", "检查", "验证", "处理"
+  ]
+};
+
+// 🚨 强制触发条件检查
+function shouldTriggerLongTermMemory(content) {
+  const allTriggerWords = Object.values(longTermTriggers).flat();
+  return containsAnyKeyword(content, allTriggerWords);
+}
+
+if (shouldTriggerLongTermMemory(conversationContent)) {
+  await mcp_context_keeper_memorize_context({
+    sessionId: currentSessionId,
+    content: extractImportantContent(conversationContent),
+    priority: determinePriorityLevel(conversationContent),
+    metadata: determineMetadata(conversationContent)
+  });
+}
+```
+
+## 🔧 工具使用规范
+
+### 会话管理
+```javascript
+// 🚨 CRITICAL：正确的会话创建/获取方式
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: "实际的客户端用户ID",        // 必需参数！客户端必须从配置文件获取
+  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！用于工作空间隔离，如"/Users/weixiaofeng12/coding/context-keeper"
+})
+
+// 获取特定会话信息（也需要完整参数）
+mcp_context_keeper_session_management({
+  action: "get",
+  sessionId: "当前会话ID",
+  userId: "实际的客户端用户ID",        // 必需参数！
+  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！确保获取正确工作空间的session
+})
+
+// ❌ 错误方式：不传userId或workspaceRoot会导致session串乱！
+// mcp_context_keeper_session_management({
+//   action: "get_or_create"  // 缺少userId和workspaceRoot
+// })  // 绝对不要这样做！会导致不同工作空间共享同一session
+```
+
+## 🔑 **重要**: 参数获取方式说明
+
+### userId 获取方式（必需参数）
+MCP客户端**必须**从以下路径获取userId，**不能**依赖系统自动获取：
+
+**1. 从本地配置文件获取**（必须实现）：
+```javascript
+// 读取本地配置文件获取userId - 必须实现！
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+// 配置文件路径（根据操作系统）
+const configPaths = {
+  'darwin': path.join(os.homedir(), 'Library', 'Application Support', 'context-keeper', 'user-config.json'),
+  'win32': path.join(os.homedir(), 'AppData', 'Roaming', 'context-keeper', 'user-config.json'),
+  'linux': path.join(os.homedir(), '.local', 'share', 'context-keeper', 'user-config.json')
+};
+
+const configPath = configPaths[os.platform()] || configPaths.linux;
+
+async function getUserId() {
+  try {
+    const userConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (!userConfig.userId) {
+      throw new Error('用户配置文件中没有userId字段，请先完成用户初始化');
+    }
+    return userConfig.userId;  // 例如: "user_weixiaofeng"
+  } catch (error) {
+    throw new Error('无法获取用户ID，请确保用户配置文件存在且格式正确: ' + error.message);
+  }
+}
+```
+
+**2. 从VSCode扩展获取**（必须实现）：
+```javascript
+// 在VSCode扩展中获取 - 必须实现！
+async function getUserIdFromDisk() {
+  const baseDir = path.join(os.homedir(), 'Library', 'Application Support', 'context-keeper');
+  const globalConfigPath = path.join(baseDir, 'user-config.json');
+  
+  try {
+    const globalConfig = JSON.parse(await fs.readFile(globalConfigPath, 'utf8'));
+    if (!globalConfig.userId) {
+      throw new Error('用户配置文件中没有userId字段');
+    }
+    return globalConfig.userId;
+  } catch (err) {
+    throw new Error('无法获取用户ID: ' + err.message);
+  }
+}
+```
+
+**3. 环境变量作为备用方案**：
+```javascript
+// 可选：从环境变量获取（仅作为备用方案）
+const userId = process.env.CONTEXT_KEEPER_USER_ID;
+if (!userId) {
+  throw new Error('环境变量CONTEXT_KEEPER_USER_ID未设置');
+}
+```
+
+### workspaceRoot 获取方式（必需参数）
+MCP客户端必须传入当前工作空间的完整路径：
+
+**1. 从当前工作目录获取**：
+```javascript
+const path = require('path');
+
+// 获取当前工作空间路径
+const workspaceRoot = path.resolve(process.cwd());
+// 例如: "/Users/weixiaofeng12/coding/context-keeper"
+```
+
+**2. 从VSCode工作空间获取**：
+```javascript
+// 在VSCode扩展中
+const vscode = require('vscode');
+
+function getWorkspaceRoot() {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+  return path.resolve(workspaceRoot);
+}
+```
+
+**3. 从环境变量获取**：
+```javascript
+// 可选：从环境变量获取工作空间路径
+const workspaceRoot = process.env.WORKSPACE_ROOT || process.cwd();
+const workspaceRoot = path.resolve(workspaceRoot);
+```
+
+## 🔧 **配置信息获取规则（MANDATORY）**
+
+### 核心配置文件位置
+**所有配置信息必须从以下位置获取：**
+```
+/Users/weixiaofeng12/coding/context-keeper/config/.env
+```
+
+### 配置获取优先级（按顺序）
+1. **配置文件**：`config/.env`（最高优先级）
+3. **环境变量**：系统环境变量（兜底方案）
+
+### 配置文件读取规则
+```javascript
+// 🚨 CRITICAL：正确的配置读取方式
+const path = require('path');
+const fs = require('fs');
+
+// 配置文件读取函数
+function loadProjectConfig() {
+  const configPath = path.join(process.cwd(), 'config', '.env');
+  
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`配置文件不存在: ${configPath}`);
+  }
+  
+  const configContent = fs.readFileSync(configPath, 'utf8');
+  const config = {};
+  
+  // 解析.env文件
+  configContent.split('\n').forEach(line => {
+    line = line.trim();
+    if (line && !line.startsWith('#')) {
+      const [key, ...valueParts] = line.split('=');
+      const value = valueParts.join('=').trim();
+      config[key.trim()] = value;
+    }
+  });
+  
+  return config;
+}
+```
+
+### 关键配置项说明
+以下配置必须从 `config/.env` 文件获取：
+
+**🔥 向量存储配置**：
+```bash
+VECTOR_STORE_TYPE=vearch
+VEARCH_URL=http://context-keeper.vearch.jd.local
+VEARCH_USERNAME=root
+VEARCH_PASSWORD=UB5EWPD6CQ28Z76Y
+VEARCH_DATABASE=db
+VEARCH_REQUIRED_SPACES=context_keeper,context_keeper_users
+```
+
+**🌐 Embedding服务配置**：
+```bash
+EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings
+EMBEDDING_API_KEY=sk-25be9b8a195145fb994f1d9b6ac26c82
+```
+
+**💾 存储路径配置**：
+```bash
+STORAGE_PATH=./data
+SERVICE_NAME=context-keeper
+PORT=8088
+```
+
+### 配置验证规则
+```javascript
+// 🚨 CRITICAL：配置验证函数
+function validateConfig(config) {
+  const requiredKeys = [
+    'VECTOR_STORE_TYPE',
+    'VEARCH_URL',
+    'VEARCH_USERNAME', 
+    'VEARCH_PASSWORD',
+    'VEARCH_DATABASE',
+    'EMBEDDING_API_URL',
+    'EMBEDDING_API_KEY'
+  ];
+  
+  const missingKeys = requiredKeys.filter(key => !config[key]);
+  
+  if (missingKeys.length > 0) {
+    throw new Error(`配置文件缺少必需参数: ${missingKeys.join(', ')}`);
+  }
+  
+  return true;
+}
+```
+
+### 配置使用示例
+```javascript
+// 🚨 CRITICAL：正确使用配置的方式
+function useProjectConfig() {
+  try {
+    // 1. 从主配置文件加载
+    const config = loadProjectConfig();
+    
+    // 2. 验证配置完整性
+    validateConfig(config);
+    
+    // 3. 使用配置值
+    const vearchConfig = {
+      url: config.VEARCH_URL,
+      username: config.VEARCH_USERNAME,
+      password: config.VEARCH_PASSWORD,
+      database: config.VEARCH_DATABASE
+    };
+    
+    return vearchConfig;
+  } catch (error) {
+    console.error('配置加载失败:', error.message);
+    throw error;
+  }
+}
+```
+
+### 禁止事项
+**❌ 绝对不允许的配置获取方式：**
+1. **硬编码配置值**：代码中不能有硬编码的服务器地址、密码等
+2. **忽略配置文件**：不能绕过config/.env文件直接使用环境变量
+3. **缓存过期配置**：不能使用已过期或错误的配置信息
+4. **配置路径错误**：不能从其他路径读取配置（如根目录的.env）
+
+### 配置文件维护规则
+1. **修改配置必须修改config/.env文件**
+2. **新增配置项必须同时更新config/env.template**
+3. **敏感信息（密码、API密钥）不能提交到git**
+4. **配置变更后必须重启服务使其生效**
+
+### 配置错误处理
+```javascript
+// 🚨 CRITICAL：配置错误的标准处理方式
+function handleConfigError(error) {
+  console.error('配置错误详情:', {
+    message: error.message,
+    configPath: path.join(process.cwd(), 'config', '.env'),
+    timestamp: new Date().toISOString()
+  });
+  
+  // 提供修复建议
+  console.log('修复建议:');
+  console.log('1. 检查配置文件是否存在: config/.env');
+  console.log('2. 参考配置模板: config/env.template'); 
+  console.log('3. 验证配置格式和必需参数');
+  console.log('4. 重启服务使配置生效');
+  
+  throw error; // 配置错误必须停止执行
+}
+```
+
+### 配置更新流程
+```
+1. 编辑 config/.env 文件
+2. 验证配置格式和必需参数
+3. 重启相关服务（HTTP服务、WebSocket服务）
+4. 验证新配置是否生效
+5. 记录配置变更日志
+```
+
+## 📝 **完整使用示例**
+
+```javascript
+// 完整的MCP客户端调用示例
+async function createOrGetSession() {
+  // 1. 获取工作空间路径（必需）
+  const workspaceRoot = path.resolve(process.cwd());
+  
+  // 2. 获取userId（必需！不能省略）
+  const userId = await getUserId(); // 必须步骤，不能省略！
+  
+  // 3. 正确调用MCP工具
+  const result = await mcp_context_keeper_session_management({
+    action: "get_or_create",
+    userId: userId,           // 必需！例如: "user_weixiaofeng"
+    workspaceRoot: workspaceRoot  // 必需！例如: "/Users/weixiaofeng12/coding/context-keeper"
+  });
+  
+  return result;
+}
+```
+
+## 🚨 **常见错误及解决方案**
+
+**错误1**: 调用时不传workspaceRoot
+```javascript
+// ❌ 错误方式
+mcp_context_keeper_session_management({
+  action: "get_or_create"
+})
+// 后果：不同工作空间的session会串乱，导致上下文混淆
+```
+
+**解决方案**: 必须传入工作空间路径
+```javascript
+// ✅ 正确方式
+const userId = await getUserIdFromConfig(); // 必须获取！
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: userId, // 必需！不能省略
+  workspaceRoot: "当前的工作空间目录" // 必需！
+})
+```
+
+**错误2**: 工作空间路径不一致
+```javascript
+// ❌ 问题：不同调用使用了不同的工作空间路径
+const path1 = '/Users/user/project';
+const path2 = '/Users/user/project/../project';
+// 虽然指向同一目录，但路径不同
+```
+
+**解决方案**: 使用path.resolve()统一路径
+```javascript
+// ✅ 正确方式
+function getWorkspaceRoot(workspacePath) {
+  const cleanPath = path.resolve(workspacePath || process.cwd());
+  return cleanPath;
+}
+```
+
+### 记忆检索
+```javascript
+// 上下文检索（条件必须）
+mcp_context_keeper_retrieve_context({
+  sessionId: "当前会话ID",
+  query: "具体的查询内容"
+})
+
+// 待办事项检索（用户明确询问时必须）
+mcp_context_keeper_retrieve_todos({
+  sessionId: "当前会话ID"
+})
+```
+
+### 记忆存储
+```javascript
+// 短期记忆（每次对话后必须）
+mcp_context_keeper_store_conversation({
+  sessionId: "当前会话ID",
+  messages: [/* 完整对话消息 */]
+})
+
+// 长期记忆（检测到重要信息时必须）
+mcp_context_keeper_memorize_context({
+  sessionId: "当前会话ID",
+  content: "重要内容",
+  priority: "P1|P2|P3",
+  metadata: {"type": "todo"} // 待办事项时必须添加
+})
+```
+
+## 🎯 优先级判断标准（明确化）
+
+### P1（高优先级）- 必须立即存储
+- 架构设计决策
+- 重要bug的解决方案
+- 核心功能实现方案
+- 项目规范和约定
+- 用户明确说"这很重要"
+- 技术债务记录
+- **🆝 用户的积极反馈和表扬**
+- **🆝 关键性总结和结论**
+
+### P2（中优先级）- 应该存储
+- 代码优化方案
+- 工具使用技巧
+- 配置修改记录
+- 常见问题解答
+- **🆝 一般性问题和待办事项**
+
+### P3（低优先级）- 可以存储
+- 日常交互记录
+- 调试过程信息
+- 一般性讨论
+
+## 🚨 强制执行规则
+
+### 必须执行的场景
+1. **每次新对话开始**：必须创建或获取会话
+2. **🔥 用户每次提出疑问、命令或建议**：必须检索相关记忆
+3. **🔥 每次对话结束**：必须存储短期记忆（100%执行，无例外）
+4. **检测到重要信息**：必须存储长期记忆
+5. **🆝 检测到用户积极反馈**：必须存储长期记忆
+6. **🆝 检测到总结、结论、问题、待办**：必须存储长期记忆
+7. **用户明确要求记录待办**：必须使用正确的metadata
+
+### 容错机制
+```javascript
+// 工具调用失败时的处理
+try {
+  // MCP工具调用
+} catch (error) {
+  // 记录错误但继续执行
+  console.log("MCP工具调用失败，继续执行:", error)
+  // 使用备用方案或跳过
+}
+```
+
+### 性能优化
+- **避免重复调用**：同一会话中不重复创建
+- **批量存储**：积累多条消息后一次性存储
+- **智能检索**：只在真正需要时检索历史
+
+## 🔍 关键词触发器（扩展版）
+
+### 🔥 回忆检索触发词（新增强化）
+**疑问类**：？, 怎么, 为什么, 如何, 什么, 哪个, 是否, 能否, 可以吗, 有没有
+**命令类**：帮我, 请, 执行, 运行, 测试, 启动, 停止, 安装, 配置, 部署, 检查
+**建议类**：建议, 推荐, 应该, 最好, 意见, 看法, 觉得, 认为, 选择, 方案
+**历史引用类**：之前, 上次, 记得, 那个, 刚才, 前面, 以前, earlier, before
+
+### 长期记忆触发词
+**技术类**：架构、设计、模式、框架、算法、性能、安全
+**项目类**：规范、标准、流程、约定、最佳实践
+**问题类**：解决方案、修复、优化、改进、调试
+**用户指令**：记住、保存、重要、关键、必须记录
+**🆝 积极反馈类**：很好、不错、棒、优秀、完美、太好了、谢谢、感谢、赞、厉害、满意
+**🆝 总结结论类**：总结、结论、小结、汇总、概括、梳理、综上、因此、最终
+**🆝 问题待办类**：问题、issue、bug、TODO、待办、任务、需要做、计划、修复
+
+### 待办事项触发词
+**明确指令**：TODO、待办、任务、需要做、计划
+**时间相关**：稍后、明天、下次、以后
+**动作相关**：修复、实现、添加、优化、测试
+
+## 📊 执行监控
+
+### 成功指标
+- 每次对话都有会话ID
+- **🔥 每次对话都进行了短期记忆存储**
+- **🔥 用户疑问/命令/建议都触发了回忆检索**
+- 重要信息都被正确存储
+- 历史查询能找到相关信息
+- 待办事项能被正确检索
+- **🆝 用户积极反馈被及时记录**
+
+### 失败处理
+- 工具调用失败时继续执行
+- 记录失败原因供后续分析
+- 提供用户友好的错误信息
+
+## 🎪 实际执行示例
+
+### 🆝 示例1：用户提出疑问
+**用户问**："这个API怎么调用？"
+
+**执行流程**：
+1. **检测疑问词**："怎么" → 🔥 **必须触发回忆检索**
+2. **检索记忆**：查找API相关的历史信息
+3. **回答问题**：基于检索到的信息回答
+4. **短期记忆**：🔥 **必须存储**这次问答
+
+### 🆝 示例2：用户执行命令
+**用户说**："请帮我启动服务"
+
+**执行流程**：
+1. **检测命令词**："请帮我"、"启动" → 🔥 **必须触发回忆检索**
+2. **检索记忆**：查找服务启动相关的历史信息
+3. **执行命令**：根据历史记录执行启动操作
+4. **短期记忆**：🔥 **必须存储**这次操作记录
+
+### 🆝 示例3：用户积极反馈
+**用户说**："很好！这个解决方案太棒了，谢谢！"
+
+**执行流程**：
+1. **检测积极反馈**："很好"、"太棒了"、"谢谢" → 🔥 **必须触发长期记忆**
+2. **立即存储**：使用P1优先级存储用户表扬
+3. **短期记忆**：🔥 **必须存储**这次反馈
+4. **确认存储**：向用户确认已记录积极反馈
+
+### 🆝 示例4：总结性对话
+**用户说**："总结一下，我们今天解决了数据库连接问题，优化了查询性能"
+
+**执行流程**：
+1. **检测总结词**："总结一下" → 🔥 **必须触发长期记忆**
+2. **提取关键信息**：数据库连接问题、查询性能优化
+3. **立即存储**：使用P1优先级存储总结内容
+4. **短期记忆**：🔥 **必须存储**这次总结
+
+### 原有示例：用户说："这个解决方案很重要，一定要记住"
+
+**执行流程**：
+1. **检测关键词**："重要"、"记住"
+2. **立即存储**：使用P1优先级存储长期记忆
+3. **确认存储**：向用户确认已保存
+
+### 原有示例：用户说："我需要稍后修复这个bug"
+
+**执行流程**：
+1. **检测待办词**："稍后"、"修复"
+2. **创建待办**：使用metadata: {"type": "todo"}
+3. **确认创建**：告知用户已创建待办事项
+
+---
+
+**总结**：这个改进版本通过明确的执行阶段、强制性指令、容错机制和性能考虑，大大提高了规则的可执行性和效果。🔥 **新增的关键优化确保每次对话都有完整的记忆管理，用户的每个疑问、命令、建议都能得到智能的上下文支持，同时积极反馈和重要总结都能被及时保存。**
+
+## 🔐 用户初始化流程（关键补全）
+
+### 自动检测用户初始化需求
+**触发条件**：当你收到工具调用的响应中包含以下信息时，必须立即发起用户初始化对话：
+- 响应中包含`"needUserInit": true`
+- 响应中包含`"initPrompt": "需要进行用户初始化才能将记忆与您的个人账户关联。请完成用户初始化流程。"`
+
+### 用户初始化执行步骤
+**强制执行流程**（必须按序执行）：
+
+1. **解释初始化需求**：
+   首先向用户解释需要初始化用户信息的原因
+
+2. **获取初始化提示**：
+```javascript
+// 调用不带用户响应的工具获取初始化提示
+mcp_context_keeper_user_init_dialog({
+  sessionId: "当前会话ID"
+})
+```
+
+3. **呈现提示并等待回答**：
+   将收到的提示呈现给用户，等待用户回答
+   **重要**：必须在收到用户的确认回复（是或者否）之后才能继续下一步
+
+4. **传递用户回答**：
+```javascript
+// 收到用户回答后，将回答传递给工具
+mcp_context_keeper_user_init_dialog({
+  sessionId: "当前会话ID",
+  userResponse: "用户回答" // 例如"是"或"否"
+})
+```
+
+5. **展示用户信息**：
+   当收到新用户信息后，清晰展示用户ID和访问码，并提醒用户妥善保管：
+   ```
+   "太好了！系统已为您创建了新用户账号。详细信息如下：
+   用户ID: [用户ID]
+   访问码: [访问码]
+   欢迎使用上下文记忆管理工具！您的数据将与您的用户ID关联。
+   请妥善保管您的访问码，当您在其他设备使用时需要输入它。"
+   ```
+
+### 用户初始化监控
+- **优先级**：用户初始化为P1最高优先级，必须立即处理
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+# Cursor记忆管理规则 - 改进版本
+
+## 🎯 核心原则：MUST DO（必须执行）
+
+**重要提示**：以下规则是MANDATORY（强制性的），不是可选建议。每次交互都必须遵循。
+
+## 📋 执行检查清单
+
+### 阶段1：会话初始化（第一优先级）
+**触发条件**：用户发送任何消息时
+**执行顺序**：
+1. **立即检查**：是否存在活跃会话
+2. **如果无会话**：立即调用session_management创建新会话
+3. **如果调用失败**：记录错误但继续对话，使用临时会话ID
+4. **执行时间**：必须在回答用户问题之前完成
+
+```javascript
+// 🚨 CRITICAL：正确的代码模板
+if (!currentSessionId) {
+  mcp_context_keeper_session_management({
+    action: "get_or_create",
+    userId: "实际的客户端用户ID",        // 必需参数！客户端必须从配置文件获取
+    workspaceRoot: "实际的工作空间路径"   // 🔥 必需参数！用于工作空间隔离，如"/Users/weixiaofeng12/coding/context-keeper"
+  })
+}
+
+// ❌ 错误方式：不传userId或workspaceRoot会导致session管理失败！
+// mcp_context_keeper_session_management({
+//   action: "get_or_create"
+// })  // 绝对不要这样做！会导致不同工作空间的session混淆
+```
+
+### 阶段2：上下文检索（第二优先级）- **强化版**
+**🔥 新增强制触发条件**：用户每次进行以下任一行为时都**必须**进行回忆检索
+- **提出疑问**：任何形式的问题（以"？"结尾、包含"怎么"、"为什么"、"如何"等疑问词）
+- **执行命令请求**：要求执行具体操作（"帮我"、"请"、"执行"、"运行"、"测试"等）
+- **寻求建议**：请求意见或建议（"建议"、"推荐"、"应该"、"最好"、"意见"等）
+- **引用历史**：提到之前的对话或项目（"之前"、"上次"、"记得"、"那个"等）
+- **技术讨论**：涉及代码、架构、系统等技术话题
+- **项目相关**：涉及当前工作空间或项目的任何内容
+
+**强制执行**：
+```javascript
+// 🚨 MUST DO：以下情况必须在回答前执行检索
+const triggerWords = [
+  // 疑问词
+  "？", "怎么", "为什么", "如何", "什么", "哪个", "是否", "能否",
+  // 命令词  
+  "帮我", "请", "执行", "运行", "测试", "启动", "停止", "安装", "配置",
+  // 建议词
+  "建议", "推荐", "应该", "最好", "意见", "看法", "觉得", "认为",
+  // 历史引用词
+  "之前", "上次", "记得", "那个", "刚才", "前面", "earlier", "before",
+  // 技术词
+  "代码", "架构", "系统", "服务", "API", "数据库", "配置", "部署", "测试"
+];
+
+if (containsAnyKeyword(userMessage, triggerWords)) {
+  await mcp_context_keeper_retrieve_context({
+    sessionId: currentSessionId,
+    query: extractKeywords(userMessage)
+  });
+}
+```
+
+### 阶段3：回答用户问题
+**正常进行对话和回答**
+
+### 阶段4：记忆存储（第三优先级）- **强化版**
+
+#### 4.1 短期记忆存储（🔥 每次对话**强制执行**）
+```javascript
+// 🚨 MUST DO：每次对话结束后100%必须执行，无例外
+// 无论对话内容是什么，都必须进行短期记忆存储
+mcp_context_keeper_store_conversation({
+  sessionId: currentSessionId,
+  messages: [
+    {role: "user", content: "用户的完整消息"},
+    {role: "assistant", content: "助手的完整回复"}
+  ]
+})
+```
+
+**长期记忆存储**：检测到以下关键词时立即执行
+- **技术关键词**：架构、设计、最佳实践、重要决策、核心功能
+- **项目关键词**：规范、约定、标准、流程
+- **用户明确指令**：记住、保存、重要、关键
+- **问题解决**：解决方案、修复、优化
+
+**强制触发条件**：
+```javascript
+const longTermTriggers = {
+  // 技术关键词（原有）
+  technical: ["架构", "设计", "最佳实践", "重要决策", "核心功能", "解决方案", "修复", "优化"],
+  
+  // 项目关键词（原有）  
+  project: ["规范", "约定", "标准", "流程", "总结", "结论"],
+  
+  // 用户明确指令（原有）
+  userCommand: ["记住", "保存", "重要", "关键", "必须记录"],
+  
+  // 🆕 用户积极反馈和褒义表达
+  positiveFeedback: [
+    "很好", "不错", "棒", "优秀", "完美", "太好了", "非常好", "excellent", "great", "perfect",
+    "谢谢", "感谢", "帮助很大", "有用", "有帮助", "thank you", "thanks", "helpful",
+    "赞", "点赞", "厉害", "牛", "强", "给力", "amazing", "awesome", "brilliant",
+    "满意", "喜欢", "正确", "对的", "没问题", "OK", "好的", "满足", "达到预期",
+    "表扬", "称赞", "夸奖", "好评", "认可", "approve", "appreciate"
+  ],
+  
+  // 🆝 关键性总结和结论
+  summaryConclusion: [
+    "总结", "结论", "小结", "汇总", "概括", "梳理", "整理", "conclude", "summary",
+    "综上", "因此", "所以", "总的来说", "最终", "最后", "in conclusion", "to summarize"
+  ],
+  
+  // 🆝 问题和待办
+  issuesAndTodos: [
+    "问题", "issue", "bug", "错误", "故障", "异常", "问题点", "疑问",
+    "TODO", "待办", "任务", "需要做", "计划", "安排", "稍后", "明天", "下次",
+    "修复", "实现", "添加", "优化", "测试", "检查", "验证", "处理"
+  ]
+};
+
+// 🚨 强制触发条件检查
+function shouldTriggerLongTermMemory(content) {
+  const allTriggerWords = Object.values(longTermTriggers).flat();
+  return containsAnyKeyword(content, allTriggerWords);
+}
+
+if (shouldTriggerLongTermMemory(conversationContent)) {
+  await mcp_context_keeper_memorize_context({
+    sessionId: currentSessionId,
+    content: extractImportantContent(conversationContent),
+    priority: determinePriorityLevel(conversationContent),
+    metadata: determineMetadata(conversationContent)
+  });
+}
+```
+
+## 🔧 工具使用规范
+
+### 会话管理
+```javascript
+// 🚨 CRITICAL：正确的会话创建/获取方式
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: "实际的客户端用户ID",        // 必需参数！客户端必须从配置文件获取
+  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！用于工作空间隔离，如"/Users/weixiaofeng12/coding/context-keeper"
+})
+
+// 获取特定会话信息（也需要完整参数）
+mcp_context_keeper_session_management({
+  action: "get",
+  sessionId: "当前会话ID",
+  userId: "实际的客户端用户ID",        // 必需参数！
+  workspaceRoot: "实际的工作空间路径"   // 🔥 必需！确保获取正确工作空间的session
+})
+
+// ❌ 错误方式：不传userId或workspaceRoot会导致session串乱！
+// mcp_context_keeper_session_management({
+//   action: "get_or_create"  // 缺少userId和workspaceRoot
+// })  // 绝对不要这样做！会导致不同工作空间共享同一session
+```
+
+## 🔑 **重要**: 参数获取方式说明
+
+### userId 获取方式（必需参数）
+MCP客户端**必须**从以下路径获取userId，**不能**依赖系统自动获取：
+
+**1. 从本地配置文件获取**（必须实现）：
+```javascript
+// 读取本地配置文件获取userId - 必须实现！
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+// 配置文件路径（根据操作系统）
+const configPaths = {
+  'darwin': path.join(os.homedir(), 'Library', 'Application Support', 'context-keeper', 'user-config.json'),
+  'win32': path.join(os.homedir(), 'AppData', 'Roaming', 'context-keeper', 'user-config.json'),
+  'linux': path.join(os.homedir(), '.local', 'share', 'context-keeper', 'user-config.json')
+};
+
+const configPath = configPaths[os.platform()] || configPaths.linux;
+
+async function getUserId() {
+  try {
+    const userConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (!userConfig.userId) {
+      throw new Error('用户配置文件中没有userId字段，请先完成用户初始化');
+    }
+    return userConfig.userId;  // 例如: "user_weixiaofeng"
+  } catch (error) {
+    throw new Error('无法获取用户ID，请确保用户配置文件存在且格式正确: ' + error.message);
+  }
+}
+```
+
+**2. 从VSCode扩展获取**（必须实现）：
+```javascript
+// 在VSCode扩展中获取 - 必须实现！
+async function getUserIdFromDisk() {
+  const baseDir = path.join(os.homedir(), 'Library', 'Application Support', 'context-keeper');
+  const globalConfigPath = path.join(baseDir, 'user-config.json');
+  
+  try {
+    const globalConfig = JSON.parse(await fs.readFile(globalConfigPath, 'utf8'));
+    if (!globalConfig.userId) {
+      throw new Error('用户配置文件中没有userId字段');
+    }
+    return globalConfig.userId;
+  } catch (err) {
+    throw new Error('无法获取用户ID: ' + err.message);
+  }
+}
+```
+
+**3. 环境变量作为备用方案**：
+```javascript
+// 可选：从环境变量获取（仅作为备用方案）
+const userId = process.env.CONTEXT_KEEPER_USER_ID;
+if (!userId) {
+  throw new Error('环境变量CONTEXT_KEEPER_USER_ID未设置');
+}
+```
+
+### workspaceRoot 获取方式（必需参数）
+MCP客户端必须传入当前工作空间的完整路径：
+
+**1. 从当前工作目录获取**：
+```javascript
+const path = require('path');
+
+// 获取当前工作空间路径
+const workspaceRoot = path.resolve(process.cwd());
+// 例如: "/Users/weixiaofeng12/coding/context-keeper"
+```
+
+**2. 从VSCode工作空间获取**：
+```javascript
+// 在VSCode扩展中
+const vscode = require('vscode');
+
+function getWorkspaceRoot() {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || process.cwd();
+  return path.resolve(workspaceRoot);
+}
+```
+
+**3. 从环境变量获取**：
+```javascript
+// 可选：从环境变量获取工作空间路径
+const workspaceRoot = process.env.WORKSPACE_ROOT || process.cwd();
+const workspaceRoot = path.resolve(workspaceRoot);
+```
+
+## 🔧 **配置信息获取规则（MANDATORY）**
+
+### 核心配置文件位置
+**所有配置信息必须从以下位置获取：**
+```
+/Users/weixiaofeng12/coding/context-keeper/config/.env
+```
+
+### 配置获取优先级（按顺序）
+1. **配置文件**：`config/.env`（最高优先级）
+3. **环境变量**：系统环境变量（兜底方案）
+
+### 配置文件读取规则
+```javascript
+// 🚨 CRITICAL：正确的配置读取方式
+const path = require('path');
+const fs = require('fs');
+
+// 配置文件读取函数
+function loadProjectConfig() {
+  const configPath = path.join(process.cwd(), 'config', '.env');
+  
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`配置文件不存在: ${configPath}`);
+  }
+  
+  const configContent = fs.readFileSync(configPath, 'utf8');
+  const config = {};
+  
+  // 解析.env文件
+  configContent.split('\n').forEach(line => {
+    line = line.trim();
+    if (line && !line.startsWith('#')) {
+      const [key, ...valueParts] = line.split('=');
+      const value = valueParts.join('=').trim();
+      config[key.trim()] = value;
+    }
+  });
+  
+  return config;
+}
+```
+
+### 关键配置项说明
+以下配置必须从 `config/.env` 文件获取：
+
+**🔥 向量存储配置**：
+```bash
+VECTOR_STORE_TYPE=vearch
+VEARCH_URL=http://context-keeper.vearch.jd.local
+VEARCH_USERNAME=root
+VEARCH_PASSWORD=UB5EWPD6CQ28Z76Y
+VEARCH_DATABASE=db
+VEARCH_REQUIRED_SPACES=context_keeper,context_keeper_users
+```
+
+**🌐 Embedding服务配置**：
+```bash
+EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings
+EMBEDDING_API_KEY=sk-25be9b8a195145fb994f1d9b6ac26c82
+```
+
+**💾 存储路径配置**：
+```bash
+STORAGE_PATH=./data
+SERVICE_NAME=context-keeper
+PORT=8088
+```
+
+### 配置验证规则
+```javascript
+// 🚨 CRITICAL：配置验证函数
+function validateConfig(config) {
+  const requiredKeys = [
+    'VECTOR_STORE_TYPE',
+    'VEARCH_URL',
+    'VEARCH_USERNAME', 
+    'VEARCH_PASSWORD',
+    'VEARCH_DATABASE',
+    'EMBEDDING_API_URL',
+    'EMBEDDING_API_KEY'
+  ];
+  
+  const missingKeys = requiredKeys.filter(key => !config[key]);
+  
+  if (missingKeys.length > 0) {
+    throw new Error(`配置文件缺少必需参数: ${missingKeys.join(', ')}`);
+  }
+  
+  return true;
+}
+```
+
+### 配置使用示例
+```javascript
+// 🚨 CRITICAL：正确使用配置的方式
+function useProjectConfig() {
+  try {
+    // 1. 从主配置文件加载
+    const config = loadProjectConfig();
+    
+    // 2. 验证配置完整性
+    validateConfig(config);
+    
+    // 3. 使用配置值
+    const vearchConfig = {
+      url: config.VEARCH_URL,
+      username: config.VEARCH_USERNAME,
+      password: config.VEARCH_PASSWORD,
+      database: config.VEARCH_DATABASE
+    };
+    
+    return vearchConfig;
+  } catch (error) {
+    console.error('配置加载失败:', error.message);
+    throw error;
+  }
+}
+```
+
+### 禁止事项
+**❌ 绝对不允许的配置获取方式：**
+1. **硬编码配置值**：代码中不能有硬编码的服务器地址、密码等
+2. **忽略配置文件**：不能绕过config/.env文件直接使用环境变量
+3. **缓存过期配置**：不能使用已过期或错误的配置信息
+4. **配置路径错误**：不能从其他路径读取配置（如根目录的.env）
+
+### 配置文件维护规则
+1. **修改配置必须修改config/.env文件**
+2. **新增配置项必须同时更新config/env.template**
+3. **敏感信息（密码、API密钥）不能提交到git**
+4. **配置变更后必须重启服务使其生效**
+
+### 配置错误处理
+```javascript
+// 🚨 CRITICAL：配置错误的标准处理方式
+function handleConfigError(error) {
+  console.error('配置错误详情:', {
+    message: error.message,
+    configPath: path.join(process.cwd(), 'config', '.env'),
+    timestamp: new Date().toISOString()
+  });
+  
+  // 提供修复建议
+  console.log('修复建议:');
+  console.log('1. 检查配置文件是否存在: config/.env');
+  console.log('2. 参考配置模板: config/env.template'); 
+  console.log('3. 验证配置格式和必需参数');
+  console.log('4. 重启服务使配置生效');
+  
+  throw error; // 配置错误必须停止执行
+}
+```
+
+### 配置更新流程
+```
+1. 编辑 config/.env 文件
+2. 验证配置格式和必需参数
+3. 重启相关服务（HTTP服务、WebSocket服务）
+4. 验证新配置是否生效
+5. 记录配置变更日志
+```
+
+## 📝 **完整使用示例**
+
+```javascript
+// 完整的MCP客户端调用示例
+async function createOrGetSession() {
+  // 1. 获取工作空间路径（必需）
+  const workspaceRoot = path.resolve(process.cwd());
+  
+  // 2. 获取userId（必需！不能省略）
+  const userId = await getUserId(); // 必须步骤，不能省略！
+  
+  // 3. 正确调用MCP工具
+  const result = await mcp_context_keeper_session_management({
+    action: "get_or_create",
+    userId: userId,           // 必需！例如: "user_weixiaofeng"
+    workspaceRoot: workspaceRoot  // 必需！例如: "/Users/weixiaofeng12/coding/context-keeper"
+  });
+  
+  return result;
+}
+```
+
+## 🚨 **常见错误及解决方案**
+
+**错误1**: 调用时不传workspaceRoot
+```javascript
+// ❌ 错误方式
+mcp_context_keeper_session_management({
+  action: "get_or_create"
+})
+// 后果：不同工作空间的session会串乱，导致上下文混淆
+```
+
+**解决方案**: 必须传入工作空间路径
+```javascript
+// ✅ 正确方式
+const userId = await getUserIdFromConfig(); // 必须获取！
+mcp_context_keeper_session_management({
+  action: "get_or_create",
+  userId: userId, // 必需！不能省略
+  workspaceRoot: "当前的工作空间目录" // 必需！
+})
+```
+
+**错误2**: 工作空间路径不一致
+```javascript
+// ❌ 问题：不同调用使用了不同的工作空间路径
+const path1 = '/Users/user/project';
+const path2 = '/Users/user/project/../project';
+// 虽然指向同一目录，但路径不同
+```
+
+**解决方案**: 使用path.resolve()统一路径
+```javascript
+// ✅ 正确方式
+function getWorkspaceRoot(workspacePath) {
+  const cleanPath = path.resolve(workspacePath || process.cwd());
+  return cleanPath;
+}
+```
+
+### 记忆检索
+```javascript
+// 上下文检索（条件必须）
+mcp_context_keeper_retrieve_context({
+  sessionId: "当前会话ID",
+  query: "具体的查询内容"
+})
+
+// 待办事项检索（用户明确询问时必须）
+mcp_context_keeper_retrieve_todos({
+  sessionId: "当前会话ID"
+})
+```
+
+### 记忆存储
+```javascript
+// 短期记忆（每次对话后必须）
+mcp_context_keeper_store_conversation({
+  sessionId: "当前会话ID",
+  messages: [/* 完整对话消息 */]
+})
+
+// 长期记忆（检测到重要信息时必须）
+mcp_context_keeper_memorize_context({
+  sessionId: "当前会话ID",
+  content: "重要内容",
+  priority: "P1|P2|P3",
+  metadata: {"type": "todo"} // 待办事项时必须添加
+})
+```
+
+## 🎯 优先级判断标准（明确化）
+
+### P1（高优先级）- 必须立即存储
+- 架构设计决策
+- 重要bug的解决方案
+- 核心功能实现方案
+- 项目规范和约定
+- 用户明确说"这很重要"
+- 技术债务记录
+- **🆝 用户的积极反馈和表扬**
+- **🆝 关键性总结和结论**
+
+### P2（中优先级）- 应该存储
+- 代码优化方案
+- 工具使用技巧
+- 配置修改记录
+- 常见问题解答
+- **🆝 一般性问题和待办事项**
+
+### P3（低优先级）- 可以存储
+- 日常交互记录
+- 调试过程信息
+- 一般性讨论
+
+## 🚨 强制执行规则
+
+### 必须执行的场景
+1. **每次新对话开始**：必须创建或获取会话
+2. **🔥 用户每次提出疑问、命令或建议**：必须检索相关记忆
+3. **🔥 每次对话结束**：必须存储短期记忆（100%执行，无例外）
+4. **检测到重要信息**：必须存储长期记忆
+5. **🆝 检测到用户积极反馈**：必须存储长期记忆
+6. **🆝 检测到总结、结论、问题、待办**：必须存储长期记忆
+7. **用户明确要求记录待办**：必须使用正确的metadata
+
+### 容错机制
+```javascript
+// 工具调用失败时的处理
+try {
+  // MCP工具调用
+} catch (error) {
+  // 记录错误但继续执行
+  console.log("MCP工具调用失败，继续执行:", error)
+  // 使用备用方案或跳过
+}
+```
+
+### 性能优化
+- **避免重复调用**：同一会话中不重复创建
+- **批量存储**：积累多条消息后一次性存储
+- **智能检索**：只在真正需要时检索历史
+
+## 🔍 关键词触发器（扩展版）
+
+### 🔥 回忆检索触发词（新增强化）
+**疑问类**：？, 怎么, 为什么, 如何, 什么, 哪个, 是否, 能否, 可以吗, 有没有
+**命令类**：帮我, 请, 执行, 运行, 测试, 启动, 停止, 安装, 配置, 部署, 检查
+**建议类**：建议, 推荐, 应该, 最好, 意见, 看法, 觉得, 认为, 选择, 方案
+**历史引用类**：之前, 上次, 记得, 那个, 刚才, 前面, 以前, earlier, before
+
+### 长期记忆触发词
+**技术类**：架构、设计、模式、框架、算法、性能、安全
+**项目类**：规范、标准、流程、约定、最佳实践
+**问题类**：解决方案、修复、优化、改进、调试
+**用户指令**：记住、保存、重要、关键、必须记录
+**🆝 积极反馈类**：很好、不错、棒、优秀、完美、太好了、谢谢、感谢、赞、厉害、满意
+**🆝 总结结论类**：总结、结论、小结、汇总、概括、梳理、综上、因此、最终
+**🆝 问题待办类**：问题、issue、bug、TODO、待办、任务、需要做、计划、修复
+
+### 待办事项触发词
+**明确指令**：TODO、待办、任务、需要做、计划
+**时间相关**：稍后、明天、下次、以后
+**动作相关**：修复、实现、添加、优化、测试
+
+## 📊 执行监控
+
+### 成功指标
+- 每次对话都有会话ID
+- **🔥 每次对话都进行了短期记忆存储**
+- **🔥 用户疑问/命令/建议都触发了回忆检索**
+- 重要信息都被正确存储
+- 历史查询能找到相关信息
+- 待办事项能被正确检索
+- **🆝 用户积极反馈被及时记录**
+
+### 失败处理
+- 工具调用失败时继续执行
+- 记录失败原因供后续分析
+- 提供用户友好的错误信息
+
+## 🎪 实际执行示例
+
+### 🆝 示例1：用户提出疑问
+**用户问**："这个API怎么调用？"
+
+**执行流程**：
+1. **检测疑问词**："怎么" → 🔥 **必须触发回忆检索**
+2. **检索记忆**：查找API相关的历史信息
+3. **回答问题**：基于检索到的信息回答
+4. **短期记忆**：🔥 **必须存储**这次问答
+
+### 🆝 示例2：用户执行命令
+**用户说**："请帮我启动服务"
+
+**执行流程**：
+1. **检测命令词**："请帮我"、"启动" → 🔥 **必须触发回忆检索**
+2. **检索记忆**：查找服务启动相关的历史信息
+3. **执行命令**：根据历史记录执行启动操作
+4. **短期记忆**：🔥 **必须存储**这次操作记录
+
+### 🆝 示例3：用户积极反馈
+**用户说**："很好！这个解决方案太棒了，谢谢！"
+
+**执行流程**：
+1. **检测积极反馈**："很好"、"太棒了"、"谢谢" → 🔥 **必须触发长期记忆**
+2. **立即存储**：使用P1优先级存储用户表扬
+3. **短期记忆**：🔥 **必须存储**这次反馈
+4. **确认存储**：向用户确认已记录积极反馈
+
+### 🆝 示例4：总结性对话
+**用户说**："总结一下，我们今天解决了数据库连接问题，优化了查询性能"
+
+**执行流程**：
+1. **检测总结词**："总结一下" → 🔥 **必须触发长期记忆**
+2. **提取关键信息**：数据库连接问题、查询性能优化
+3. **立即存储**：使用P1优先级存储总结内容
+4. **短期记忆**：🔥 **必须存储**这次总结
+
+### 原有示例：用户说："这个解决方案很重要，一定要记住"
+
+**执行流程**：
+1. **检测关键词**："重要"、"记住"
+2. **立即存储**：使用P1优先级存储长期记忆
+3. **确认存储**：向用户确认已保存
+
+### 原有示例：用户说："我需要稍后修复这个bug"
+
+**执行流程**：
+1. **检测待办词**："稍后"、"修复"
+2. **创建待办**：使用metadata: {"type": "todo"}
+3. **确认创建**：告知用户已创建待办事项
+
+---
+
+**总结**：这个改进版本通过明确的执行阶段、强制性指令、容错机制和性能考虑，大大提高了规则的可执行性和效果。🔥 **新增的关键优化确保每次对话都有完整的记忆管理，用户的每个疑问、命令、建议都能得到智能的上下文支持，同时积极反馈和重要总结都能被及时保存。**
+
+## 🔐 用户初始化流程（关键补全）
+
+### 自动检测用户初始化需求
+**触发条件**：当你收到工具调用的响应中包含以下信息时，必须立即发起用户初始化对话：
+- 响应中包含`"needUserInit": true`
+- 响应中包含`"initPrompt": "需要进行用户初始化才能将记忆与您的个人账户关联。请完成用户初始化流程。"`
+
+### 用户初始化执行步骤
+**强制执行流程**（必须按序执行）：
+
+1. **解释初始化需求**：
+   首先向用户解释需要初始化用户信息的原因
+
+2. **获取初始化提示**：
+```javascript
+// 调用不带用户响应的工具获取初始化提示
+mcp_context_keeper_user_init_dialog({
+  sessionId: "当前会话ID"
+})
+```
+
+3. **呈现提示并等待回答**：
+   将收到的提示呈现给用户，等待用户回答
+   **重要**：必须在收到用户的确认回复（是或者否）之后才能继续下一步
+
+4. **传递用户回答**：
+```javascript
+// 收到用户回答后，将回答传递给工具
+mcp_context_keeper_user_init_dialog({
+  sessionId: "当前会话ID",
+  userResponse: "用户回答" // 例如"是"或"否"
+})
+```
+
+5. **展示用户信息**：
+   当收到新用户信息后，清晰展示用户ID和访问码，并提醒用户妥善保管：
+   ```
+   "太好了！系统已为您创建了新用户账号。详细信息如下：
+   用户ID: [用户ID]
+   访问码: [访问码]
+   欢迎使用上下文记忆管理工具！您的数据将与您的用户ID关联。
+   请妥善保管您的访问码，当您在其他设备使用时需要输入它。"
+   ```
+
+### 用户初始化监控
+- **优先级**：用户初始化为P1最高优先级，必须立即处理
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化
+
+- **错误处理**：如果初始化失败，必须记录错误并指导用户重试
+- **状态跟踪**：记录用户初始化完成状态，避免重复初始化

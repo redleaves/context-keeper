@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/contextkeeper/service/internal/agentic/config"
+	"github.com/contextkeeper/service/internal/agentic_beta/config"
 )
 
 // OptimizedDecisionEngine 优化后的决策引擎

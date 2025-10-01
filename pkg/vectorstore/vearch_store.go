@@ -471,6 +471,179 @@ func (v *VearchStore) CountMemories(sessionID string) (int, error) {
 	return len(resp.Data.Documents), nil
 }
 
+// StoreEnhancedMemory 存储增强的多维度记忆（新增方法）
+func (v *VearchStore) StoreEnhancedMemory(memory *models.EnhancedMemory) error {
+	log.Printf("[京东云向量存储] 存储增强记忆: ID=%s, 会话=%s", memory.Memory.ID, memory.Memory.SessionID)
+
+	if !v.initialized {
+		if err := v.Initialize(); err != nil {
+			return err
+		}
+	}
+
+	// 首先确保基础向量已生成
+	if memory.Memory.Vector == nil || len(memory.Memory.Vector) == 0 {
+		return fmt.Errorf("存储前必须先生成基础向量")
+	}
+
+	// 生成格式化的时间戳
+	formattedTime := time.Unix(memory.Memory.Timestamp, 0).Format("2006-01-02 15:04:05")
+
+	// 处理元数据
+	metadataStr := "{}"
+	if memory.Memory.Metadata != nil {
+		if metadataBytes, err := json.Marshal(memory.Memory.Metadata); err == nil {
+			metadataStr = string(metadataBytes)
+		} else {
+			log.Printf("[京东云向量存储] 警告: 无法序列化元数据: %v", err)
+		}
+	}
+
+	// 构建增强文档（包含所有现有字段 + 新增多维度字段）
+	doc := map[string]interface{}{
+		// 现有字段（完全兼容）
+		"_id":            memory.Memory.ID,
+		"vector":         memory.Memory.Vector,
+		"content":        memory.Memory.Content,
+		"session_id":     memory.Memory.SessionID,
+		"user_id":        memory.Memory.UserID,
+		"timestamp":      memory.Memory.Timestamp,
+		"formatted_time": formattedTime,
+		"priority":       memory.Memory.Priority,
+		"metadata":       metadataStr,
+		"memory_id":      memory.Memory.ID,
+		"biz_type":       memory.Memory.BizType,
+
+		// 新增多维度字段
+		"semantic_tags":    memory.SemanticTags,
+		"concept_entities": memory.ConceptEntities,
+		"related_concepts": memory.RelatedConcepts,
+		"importance_score": memory.ImportanceScore,
+		"relevance_score":  memory.RelevanceScore,
+		"context_summary":  memory.ContextSummary,
+		"tech_stack":       memory.TechStack,
+		"project_context":  memory.ProjectContext,
+		"event_type":       memory.EventType,
+	}
+
+	// 添加多维度向量字段（如果存在）
+	if len(memory.SemanticVector) > 0 {
+		doc["semantic_vector"] = memory.SemanticVector
+	}
+	if len(memory.ContextVector) > 0 {
+		doc["context_vector"] = memory.ContextVector
+	}
+	if len(memory.TimeVector) > 0 {
+		doc["time_vector"] = memory.TimeVector
+	}
+	if len(memory.DomainVector) > 0 {
+		doc["domain_vector"] = memory.DomainVector
+	}
+
+	// 添加多维度元数据
+	if memory.MultiDimMetadata != nil {
+		if multiDimBytes, err := json.Marshal(memory.MultiDimMetadata); err == nil {
+			doc["multi_dim_metadata"] = string(multiDimBytes)
+		}
+	}
+
+	// 插入到Vearch
+	if err := v.client.Insert(v.database, "context_keeper_vector", []map[string]interface{}{doc}); err != nil {
+		return fmt.Errorf("插入增强记忆到Vearch失败: %v", err)
+	}
+
+	log.Printf("[京东云向量存储] 增强记忆存储成功: ID=%s", memory.Memory.ID)
+	return nil
+}
+
+// StoreEnhancedMessage 存储增强的多维度消息（新增方法）
+func (v *VearchStore) StoreEnhancedMessage(message *models.EnhancedMessage) error {
+	log.Printf("[京东云向量存储] 存储增强消息: ID=%s, 会话=%s", message.Message.ID, message.Message.SessionID)
+
+	if !v.initialized {
+		if err := v.Initialize(); err != nil {
+			return err
+		}
+	}
+
+	// 首先确保基础向量已生成
+	if message.Message.Vector == nil || len(message.Message.Vector) == 0 {
+		return fmt.Errorf("存储前必须先生成基础向量")
+	}
+
+	// 生成格式化的时间戳
+	formattedTime := time.Unix(message.Message.Timestamp, 0).Format("2006-01-02 15:04:05")
+
+	// 处理元数据
+	metadataStr := "{}"
+	if message.Message.Metadata != nil {
+		if metadataBytes, err := json.Marshal(message.Message.Metadata); err == nil {
+			metadataStr = string(metadataBytes)
+		} else {
+			log.Printf("[京东云向量存储] 警告: 无法序列化元数据: %v", err)
+		}
+	}
+
+	// 构建增强文档（包含所有现有字段 + 新增多维度字段）
+	doc := map[string]interface{}{
+		// 现有字段（完全兼容）
+		"_id":            message.Message.ID,
+		"vector":         message.Message.Vector,
+		"content":        message.Message.Content,
+		"session_id":     message.Message.SessionID,
+		"user_id":        "", // Message模型中没有UserID字段
+		"role":           message.Message.Role,
+		"content_type":   message.Message.ContentType,
+		"timestamp":      message.Message.Timestamp,
+		"formatted_time": formattedTime,
+		"priority":       message.Message.Priority,
+		"metadata":       metadataStr,
+		"message_id":     message.Message.ID,
+		"biz_type":       "", // Message模型中没有BizType字段
+		"memory_id":      "", // Message没有memory_id
+
+		// 新增多维度字段
+		"semantic_tags":    message.SemanticTags,
+		"concept_entities": message.ConceptEntities,
+		"related_concepts": message.RelatedConcepts,
+		"importance_score": message.ImportanceScore,
+		"relevance_score":  message.RelevanceScore,
+		"context_summary":  message.ContextSummary,
+		"tech_stack":       message.TechStack,
+		"project_context":  message.ProjectContext,
+		"event_type":       message.EventType,
+	}
+
+	// 添加多维度向量字段（如果存在）
+	if len(message.SemanticVector) > 0 {
+		doc["semantic_vector"] = message.SemanticVector
+	}
+	if len(message.ContextVector) > 0 {
+		doc["context_vector"] = message.ContextVector
+	}
+	if len(message.TimeVector) > 0 {
+		doc["time_vector"] = message.TimeVector
+	}
+	if len(message.DomainVector) > 0 {
+		doc["domain_vector"] = message.DomainVector
+	}
+
+	// 添加多维度元数据
+	if message.MultiDimMetadata != nil {
+		if multiDimBytes, err := json.Marshal(message.MultiDimMetadata); err == nil {
+			doc["multi_dim_metadata"] = string(multiDimBytes)
+		}
+	}
+
+	// 插入到Vearch
+	if err := v.client.Insert(v.database, "context_keeper_vector", []map[string]interface{}{doc}); err != nil {
+		return fmt.Errorf("插入增强消息到Vearch失败: %v", err)
+	}
+
+	log.Printf("[京东云向量存储] 增强消息存储成功: ID=%s", message.Message.ID)
+	return nil
+}
+
 // =============================================================================
 // VectorSearcher 接口实现
 // =============================================================================

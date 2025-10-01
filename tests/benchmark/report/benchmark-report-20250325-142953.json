@@ -1,0 +1,62 @@
+{
+  "start_time": "2025-03-25T14:29:02.06974+08:00",
+  "end_time": "2025-03-25T14:29:53.094016+08:00",
+  "environment": "4核CPU, 8GB内存, SSD存储",
+  "results": [
+    {
+      "name": "会话创建",
+      "operations": 100,
+      "total_time": 3662013039,
+      "average_time": 36620130,
+      "min_time": 25149334,
+      "max_time": 50055000,
+      "success_rate": 100
+    },
+    {
+      "name": "文件关联",
+      "operations": 100,
+      "total_time": 8935544835,
+      "average_time": 89355448,
+      "min_time": 70791167,
+      "max_time": 109633208,
+      "success_rate": 100
+    },
+    {
+      "name": "编辑记录",
+      "operations": 100,
+      "total_time": 3008859045,
+      "average_time": 30088590,
+      "min_time": 21003458,
+      "max_time": 40028291,
+      "success_rate": 100
+    },
+    {
+      "name": "向量存储",
+      "operations": 100,
+      "total_time": 15250160004,
+      "average_time": 152501600,
+      "min_time": 131023250,
+      "max_time": 172935833,
+      "success_rate": 100
+    },
+    {
+      "name": "向量检索",
+      "operations": 100,
+      "total_time": 18000106835,
+      "average_time": 180001068,
+      "min_time": 151021375,
+      "max_time": 210055208,
+      "success_rate": 100
+    },
+    {
+      "name": "并发会话",
+      "operations": 30,
+      "total_time": 49378631333,
+      "average_time": 1645954377,
+      "min_time": 1549720416,
+      "max_time": 1726621125,
+      "success_rate": 100
+    }
+  ],
+  "test_data_size": 100
+}
