@@ -1,0 +1,171 @@
+name: ❓ Question
+description: Ask a question about Context-Keeper usage, configuration, or integration
+title: "[QUESTION] "
+labels: ["question", "needs-response"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about Context-Keeper? We're here to help! 🤝
+        
+        **💡 Tip**: For general discussions, consider using [GitHub Discussions](https://github.com/redleaves/context-keeper/discussions) instead.
+        
+  - type: dropdown
+    id: category
+    attributes:
+      label: 📂 Question Category
+      description: What type of question is this?
+      options:
+        - "🚀 Getting Started & Installation"
+        - "⚙️ Configuration & Setup"
+        - "🔌 IDE Integration (Cursor/VSCode)"
+        - "🧠 Memory & Context Management"
+        - "🔍 Search & Retrieval"
+        - "🏢 Enterprise Deployment"
+        - "🔒 Security & Privacy"
+        - "📊 Performance & Monitoring"
+        - "🔧 Troubleshooting"
+        - "🌐 API & Development"
+        - "📚 Documentation Clarification"
+        - "🤝 Contributing & Development"
+        - "Other"
+    validations:
+      required: true
+      
+  - type: textarea
+    id: question
+    attributes:
+      label: ❓ Your Question
+      description: What would you like to know?
+      placeholder: |
+        Please be as specific as possible. Include:
+        - What you're trying to achieve
+        - What you've already tried
+        - Any error messages or unexpected behavior
+        - Your current setup/environment
+    validations:
+      required: true
+      
+  - type: textarea
+    id: context
+    attributes:
+      label: 🎯 Context & Background
+      description: Help us understand your situation better
+      placeholder: |
+        - What's your use case or project type?
+        - What's your team size and setup?
+        - Are you evaluating Context-Keeper or already using it?
+        - Any specific requirements or constraints?
+    validations:
+      required: false
+      
+  - type: textarea
+    id: attempted
+    attributes:
+      label: 🔍 What You've Tried
+      description: What have you already attempted?
+      placeholder: |
+        - Documentation sections you've read
+        - Configuration changes you've made
+        - Error messages you've encountered
+        - Workarounds you've attempted
+    validations:
+      required: false
+      
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 🖥️ Environment
+      description: What's your setup?
+      options:
+        - "macOS"
+        - "Linux (Ubuntu)"
+        - "Linux (CentOS/RHEL)"
+        - "Linux (Other)"
+        - "Windows"
+        - "Docker"
+        - "Kubernetes"
+        - "Cloud (AWS/GCP/Azure)"
+        - "Other"
+        - "Not applicable"
+    validations:
+      required: false
+      
+  - type: input
+    id: version
+    attributes:
+      label: 📦 Context-Keeper Version
+      description: Which version are you using?
+      placeholder: e.g., v2.0.0, main branch, commit hash, or "not installed yet"
+    validations:
+      required: false
+      
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: ⏰ Urgency Level
+      description: How urgent is this question?
+      options:
+        - "🔥 Urgent - Blocking production deployment"
+        - "🚀 High - Blocking development progress"
+        - "📈 Medium - Would help improve workflow"
+        - "💡 Low - General curiosity or future planning"
+    validations:
+      required: true
+      
+  - type: textarea
+    id: config
+    attributes:
+      label: ⚙️ Relevant Configuration
+      description: Share any relevant configuration (remove sensitive data like API keys)
+      render: yaml
+      placeholder: |
+        # Only include relevant parts of your config
+        # Remove sensitive information like API keys, passwords, etc.
+        
+        SERVICE_NAME=context-keeper
+        PORT=8088
+        LLM_PROVIDER=ollama_local
+        # ... other relevant config
+    validations:
+      required: false
+      
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📋 Relevant Logs or Errors
+      description: Any error messages or log output that might be helpful
+      render: shell
+      placeholder: |
+        Paste any relevant logs, error messages, or command output here...
+    validations:
+      required: false
+      
+  - type: checkboxes
+    id: research
+    attributes:
+      label: 🔍 Pre-Question Checklist
+      description: Please confirm you've done the following
+      options:
+        - label: I've checked the [README](https://github.com/redleaves/context-keeper/blob/main/README.md)
+          required: true
+        - label: I've searched existing issues and discussions
+          required: true
+        - label: I've looked at the [documentation](https://github.com/redleaves/context-keeper/tree/main/docs) (if applicable)
+          required: false
+        - label: I've tried basic troubleshooting steps
+          required: false
+          
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        
+        **🤝 Community Support**: Consider also asking in our [Discussions](https://github.com/redleaves/context-keeper/discussions) for community input!
+        
+        **📚 Resources**:
+        - [Documentation](https://github.com/redleaves/context-keeper/tree/main/docs)
+        - [Examples](https://github.com/redleaves/context-keeper/tree/main/examples)
+        - [Configuration Guide](https://github.com/redleaves/context-keeper/blob/main/config/env.template)

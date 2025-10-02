@@ -9,6 +9,8 @@
 
 *重新定义AI助手的记忆边界，让每一次对话都有意义*
 
+**Language**: [English](README-EN.md) | [简体中文](README.md)
+
 [![GitHub Stars](https://img.shields.io/github/stars/redleaves/context-keeper?style=for-the-badge&logo=github&color=ff69b4)](https://github.com/redleaves/context-keeper)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org/)

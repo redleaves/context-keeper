@@ -1,0 +1,177 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for Context-Keeper
+title: "[FEATURE] "
+labels: ["enhancement", "needs-discussion"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! 🚀
+        Your ideas help make Context-Keeper better for everyone.
+        
+  - type: textarea
+    id: problem
+    attributes:
+      label: 🎯 Problem Statement
+      description: What problem does this feature solve? What's the current pain point?
+      placeholder: |
+        As a [user type], I want [goal] so that [benefit].
+        
+        Currently, when I [scenario], I have to [workaround] which is [pain point].
+    validations:
+      required: true
+      
+  - type: textarea
+    id: solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe your ideal solution to this problem.
+      placeholder: |
+        I would like Context-Keeper to...
+        
+        This could work by...
+        
+        The user experience would be...
+    validations:
+      required: true
+      
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternative Solutions
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: |
+        Alternative 1: ...
+        Alternative 2: ...
+        
+        Current workaround: ...
+    validations:
+      required: false
+      
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 📊 Priority Level
+      description: How important is this feature to you?
+      options:
+        - "🔥 Critical - Blocking my usage"
+        - "🚀 High - Would significantly improve my workflow"  
+        - "📈 Medium - Nice to have improvement"
+        - "💡 Low - Interesting idea for the future"
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: category
+    attributes:
+      label: 🏷️ Feature Category
+      description: What area does this feature relate to?
+      options:
+        - "🧠 Memory & Context Management"
+        - "🔍 Search & Retrieval"
+        - "🔌 IDE Integration (Cursor/VSCode)"
+        - "🏗️ Architecture & Performance"
+        - "🔒 Security & Privacy"
+        - "📊 Analytics & Monitoring"
+        - "🌐 API & Integrations"
+        - "📚 Documentation & UX"
+        - "🚀 Deployment & DevOps"
+        - "🎨 UI/UX Improvements"
+        - "🔧 Developer Experience"
+        - "📱 Platform Support"
+        - "Other"
+    validations:
+      required: true
+      
+  - type: textarea
+    id: use_case
+    attributes:
+      label: 🎪 Use Case Examples
+      description: Provide specific examples of how this feature would be used.
+      placeholder: |
+        Example 1: When working on [project type], I would use this to [specific action]...
+        
+        Example 2: In [scenario], this feature would help by [benefit]...
+        
+        Example 3: My team could [workflow improvement]...
+    validations:
+      required: true
+      
+  - type: textarea
+    id: technical
+    attributes:
+      label: 🔧 Technical Considerations
+      description: Any technical details, constraints, or implementation ideas?
+      placeholder: |
+        - This might require changes to [component]
+        - Could integrate with [external service]
+        - Performance considerations: [details]
+        - Security implications: [concerns]
+    validations:
+      required: false
+      
+  - type: dropdown
+    id: users
+    attributes:
+      label: 👥 Target Users
+      description: Who would benefit most from this feature?
+      multiple: true
+      options:
+        - "Individual developers"
+        - "Small teams (2-10 people)"
+        - "Medium teams (10-50 people)"
+        - "Large teams (50+ people)"
+        - "Enterprise organizations"
+        - "Open source maintainers"
+        - "AI/ML researchers"
+        - "DevOps engineers"
+        - "Technical writers"
+        - "Product managers"
+    validations:
+      required: true
+      
+  - type: textarea
+    id: mockup
+    attributes:
+      label: 🎨 Mockups or Examples
+      description: Any mockups, screenshots, or examples from other tools?
+      placeholder: |
+        You can drag and drop images here, or describe the UI/UX you envision:
+        
+        - The interface could look like...
+        - Similar to [tool name]'s [feature]...
+        - Workflow: Step 1 -> Step 2 -> Step 3...
+    validations:
+      required: false
+      
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 🤝 Contribution
+      description: Are you interested in contributing to this feature?
+      options:
+        - label: I'm willing to help with design/planning
+          required: false
+        - label: I'm willing to help with implementation
+          required: false
+        - label: I'm willing to help with testing
+          required: false
+        - label: I'm willing to help with documentation
+          required: false
+        - label: I can provide ongoing feedback during development
+          required: false
+          
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: ✅ Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and discussions to avoid duplicates
+          required: true
+        - label: I have provided clear use cases and examples
+          required: true
+        - label: This feature aligns with Context-Keeper's mission of intelligent memory management
+          required: true
