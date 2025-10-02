@@ -105,6 +105,8 @@ graph LR
 | **⚡ Wide Recall + Precision Ranking** | Contradiction between recall and accuracy | **Two-Stage Architecture**: Wide recall (100 items) → Precision ranking (TOP-N) | 80%+ Coverage |
 | **🎯 Multi-Dimensional Fusion** | Single semantic retrieval, isolated information | **Three-Dimensional Memory Space**: Semantic + Temporal + Knowledge intelligent fusion | 3x Association Discovery Rate |
 
+> Note: The above metrics are internal benchmark results under specific evaluation scenarios; actual results may vary by dataset, model and environment (scenario-scope).
+
 ### 🎯 **Business Value**
 
 #### **Value for Development Teams**
@@ -300,6 +302,8 @@ sequenceDiagram
 | **🧠 Intelligence Layer** | Two-stage LLM collaborative reasoning | Intent analysis + intelligent synthesis division | **75% Accuracy** |
 | **🔍 Retrieval Layer** | Multi-dimensional wide recall + precision ranking | Semantic + temporal + knowledge parallel retrieval | **80%+ Recall Rate** |
 | **⭐️ Management Layer** | Intelligent context management | Four-dimensional coordination + real-time synchronization | **Response <500ms** |
+
+> Note: Metrics reflect internal benchmarks under controlled scenarios; production performance depends on model choice, hardware and configuration (scenario-scope).
 
 ### 📋 **3.2 Intelligent Context Management**
 
@@ -635,6 +639,153 @@ curl http://localhost:8088/health
 # Expected output: {"status":"healthy","version":"v2.0.0"}
 ```
 
+### ⚙️ **Detailed Parameter Configuration**
+
+#### **Real .env Configuration**
+
+Based on the project's actual `config/.env` (sample below):
+
+```bash
+# =================================
+# Basic Service
+# =================================
+SERVICE_NAME=context-keeper         # Service name
+PORT=8088                           # HTTP port
+DEBUG=false                         # Debug mode
+STORAGE_PATH=./data                 # Data storage path
+
+# =================================
+# Vector Store (Required)
+# =================================
+# aliyun | vearch
+VECTOR_STORE_TYPE=aliyun            # Support DashVector (Aliyun) and Vearch (JD Cloud)
+
+# Aliyun DashVector
+VECTOR_DB_URL=https://your-instance.dashvector.cn-hangzhou.aliyuncs.com
+VECTOR_DB_API_KEY=your-dashvector-api-key
+VECTOR_DB_COLLECTION=context_keeper
+VECTOR_DB_DIMENSION=1536
+SIMILARITY_THRESHOLD=0.4
+
+# JD Cloud Vearch (optional alternative)
+VEARCH_URL=http://your-vearch-instance.jd.local
+VEARCH_USERNAME=root
+VEARCH_PASSWORD=your-password
+VEARCH_DATABASE=db
+VEARCH_REQUIRED_SPACES=context_keeper_vector,context_keeper_users
+
+# =================================
+# Embedding Service (Required)
+# =================================
+EMBEDDING_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings
+EMBEDDING_API_KEY=your-dashscope-api-key
+
+# Batch embedding (optional)
+BATCH_EMBEDDING_API_URL=https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding
+BATCH_QUEUE_SIZE=100
+BATCH_WORKER_POLL_INTERVAL=5s
+
+# =================================
+# LLM (local first; cloud as fallback)
+# =================================
+LLM_PROVIDER=ollama_local           # Prefer local models
+LLM_MODEL=deepseek-coder-v2:16b     # Local code-understanding model
+LLM_MAX_TOKENS=80000
+LLM_TEMPERATURE=0.1
+LLM_TIMEOUT_SECONDS=600
+
+# Cloud model API keys (fallback)
+DEEPSEEK_API_KEY=your-deepseek-key
+OPENAI_API_KEY=your-openai-key
+CLAUDE_API_KEY=your-claude-key
+
+# Timeline storage (TimescaleDB/PostgreSQL)
+TIMELINE_STORAGE_ENABLED=true
+TIMESCALEDB_HOST=localhost
+TIMESCALEDB_PORT=5432
+TIMESCALEDB_DATABASE=context_keeper_timeline
+TIMESCALEDB_USERNAME=your-username
+TIMESCALEDB_PASSWORD=your-password
+
+# Knowledge graph storage (Neo4j)
+KNOWLEDGE_GRAPH_ENABLED=true
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your-neo4j-password
+NEO4J_DATABASE=neo4j
+
+# =================================
+# Session management
+# =================================
+SESSION_TIMEOUT=120m                # Session timeout
+CLEANUP_INTERVAL=30m                # Cleanup interval
+SHORT_MEMORY_MAX_AGE=3              # Short-term memory retention days
+```
+
+#### **LLM Model Selection Configuration**
+
+From `config/llm_config.yaml` (local-first with cloud fallback):
+
+```yaml
+llm:
+  default:
+    primary_provider: "ollama_local"    # Prefer local models
+    fallback_provider: "deepseek"       # Cloud model as fallback
+
+  providers:
+    # Local models (recommended)
+    ollama_local:
+      base_url: "http://localhost:11434"
+      model: "deepseek-coder-v2:16b"
+      timeout: "60s"
+      rate_limit: 0
+      available_models:
+        - "codeqwen:7b"
+        - "deepseek-coder:33b"
+        - "deepseek-coder-v2:16b"
+
+    # Cloud providers (fallback)
+    deepseek:
+      api_key: "${DEEPSEEK_API_KEY}"
+      model: "deepseek-chat"
+      timeout: "120s"
+      rate_limit: 6000
+
+    openai:
+      api_key: "${OPENAI_API_KEY}"
+      model: "gpt-3.5-turbo"
+
+    claude:
+      api_key: "${CLAUDE_API_KEY}"
+      model: "claude-3-sonnet-20240229"
+```
+
+#### **Parameter Reference**
+
+| Category | Key | Required | Description | Default |
+|---------|-----|----------|-------------|---------|
+| Basic | `SERVICE_NAME` | ✅ | Service name | `context-keeper` |
+|  | `PORT` | ✅ | HTTP listen port | `8088` |
+|  | `STORAGE_PATH` | ✅ | Data storage directory | `./data` |
+| Vector Store | `VECTOR_STORE_TYPE` | ✅ | `aliyun` or `vearch` | `aliyun` |
+|  | `VECTOR_DB_URL` | ✅ | DashVector endpoint | - |
+|  | `VECTOR_DB_API_KEY` | ✅ | DashVector API key | - |
+|  | `VEARCH_URL` | ❌ | Vearch endpoint | - |
+|  | `VEARCH_USERNAME` | ❌ | Vearch username | `root` |
+| Embedding | `EMBEDDING_API_URL` | ✅ | DashScope embedding endpoint | - |
+|  | `EMBEDDING_API_KEY` | ✅ | DashScope API key | - |
+| LLM | `LLM_PROVIDER` | ✅ | `ollama_local`/`deepseek`/`openai` | `ollama_local` |
+|  | `LLM_MODEL` | ✅ | Model name | `deepseek-coder-v2:16b` |
+|  | `LLM_MAX_TOKENS` | ❌ | Max tokens | `80000` |
+| Timeline | `TIMELINE_STORAGE_ENABLED` | ✅ | Enable TimescaleDB | `true` |
+|  | `TIMESCALEDB_HOST` | ✅ | PostgreSQL host | `localhost` |
+|  | `TIMESCALEDB_DATABASE` | ✅ | DB name | `context_keeper_timeline` |
+| Graph | `KNOWLEDGE_GRAPH_ENABLED` | ✅ | Enable Neo4j | `true` |
+|  | `NEO4J_URI` | ✅ | Bolt URI | `bolt://localhost:7687` |
+|  | `NEO4J_USERNAME` | ✅ | Neo4j user | `neo4j` |
+| Session | `SESSION_TIMEOUT` | ❌ | Session timeout | `120m` |
+|  | `SHORT_MEMORY_MAX_AGE` | ❌ | Short-term memory retention days | `7` |
+
 #### **Verify Complete Functionality**
 
 ```bash
@@ -779,13 +930,13 @@ gantt
     
     section 🕸️ Knowledge Graph
     Enterprise Knowledge Graph  :active, kg1, 2025-10-01, 2025-12-31
-    Reasoning Engine           :kg2, 2026-01-01, 2026-03-31
-    Cross-Project Knowledge    :kg3, 2026-01-01, 2026-04-30
+    Reasoning Engine           :kg2, 2025-10-01, 2025-12-31
+    Cross-Project Knowledge    :kg3, 2025-10-01, 2025-12-31
     
     section 🏢 Enterprise
-    Multi-Tenant SaaS          :enterprise1, 2026-04-01, 2026-06-30
-    Security Compliance        :enterprise2, 2026-04-01, 2026-07-31
-    Global Deployment          :enterprise3, 2026-07-01, 2026-12-31
+    Multi-Tenant SaaS          :enterprise1, 2026-01-01, 2026-03-31
+    Security Compliance        :enterprise2, 2026-01-01, 2026-03-31
+    Global Deployment          :enterprise3, 2026-01-01, 2026-03-31
 ```
 
 ### 🔥 **Phase III: Knowledge Graph Construction** (Currently in Progress)
@@ -954,28 +1105,6 @@ git push origin feature/amazing-new-feature
 | **🧪 Test Cases** | Testing Mindset & Skills | Quality Assurance | Ensure product quality |
 | **🌍 Internationalization** | Multi-language Ability | Localization Champion | Expand global user coverage |
 | **🎨 UI/UX Design** | Design & Frontend Skills | Design Contributor | Enhance user experience |
-
-#### **🏆 Contributor Recognition Program**
-
-**🥉 Bronze Contributor** (1-5 valid contributions)
-- GitHub Profile contributor badge
-- Project README acknowledgment list
-- Community Discord exclusive identity
-
-**🥈 Silver Contributor** (6-20 valid contributions)  
-- Technical sharing blog promotion
-- Context-Keeper tech conference speaking opportunities
-- Product roadmap voting rights
-
-**🥇 Gold Contributor** (21+ valid contributions)
-- Core Maintainer permissions
-- Participation in important product decisions
-- Excellent talent referral opportunities
-
-**💎 Distinguished Contributor** (Outstanding contributors)
-- Project Co-Maintainer status
-- Priority for commercial cooperation opportunities
-- Annual open source conference speaking invitations
 
 ---
 

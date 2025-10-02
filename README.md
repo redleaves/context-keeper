@@ -919,7 +919,7 @@ git push origin feature/amazing-new-feature
 
 ```bash
 # 1️⃣ 获取Context-Keeper
-git clone https://github.com/context-keeper/context-keeper.git
+git clone https://github.com/redleaves/context-keeper.git
 
 # 2️⃣ 一键启动服务  
 ./scripts/manage.sh deploy http --port 8088
@@ -931,9 +931,9 @@ git clone https://github.com/context-keeper/context-keeper.git
 
 ### 🎯 **选择最适合您的方案**
 
-[![🏠 个人开发者](https://img.shields.io/badge/个人开发者-免费使用-4CAF50?style=for-the-badge&logo=home&logoColor=white)](https://github.com/context-keeper/context-keeper/releases)
+[![🏠 个人开发者](https://img.shields.io/badge/个人开发者-免费使用-4CAF50?style=for-the-badge&logo=home&logoColor=white)](https://github.com/redleaves/context-keeper/releases)
 [![🏢 企业团队](https://img.shields.io/badge/企业团队-专业服务-2196F3?style=for-the-badge&logo=business&logoColor=white)](mailto:enterprise@context-keeper.com)
-[![🤝 开源贡献](https://img.shields.io/badge/开源贡献-共建生态-FF9800?style=for-the-badge&logo=github&logoColor=white)](https://github.com/context-keeper/context-keeper/blob/main/CONTRIBUTING.md)
+[![🤝 开源贡献](https://img.shields.io/badge/开源贡献-共建生态-FF9800?style=for-the-badge&logo=github&logoColor=white)](https://github.com/redleaves/context-keeper/blob/main/CONTRIBUTING.md)
 
 ---
 
