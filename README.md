@@ -982,3 +982,8 @@ git clone https://github.com/redleaves/context-keeper.git
 ---
 
 *Copyright © 2025 Context-Keeper Team. All rights reserved.*
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/redleaves-context-keeper).
+
